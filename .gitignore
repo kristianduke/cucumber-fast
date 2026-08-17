@@ -1,0 +1,18 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ Platform Gradle Plugin
+.intellijPlatform/
+.kotlin/
+
+# IDE
+.idea/**
+!.idea/.gitignore
+!.idea/encodings.xml
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,30 @@
+<idea-plugin>
+    <!-- id, name, version and idea-version are injected by the Gradle build (patchPluginXml). -->
+    <vendor>Kristian</vendor>
+
+    <description><![CDATA[
+    Fast navigation between Gherkin feature files and their Java step definitions.<br/>
+    Step definitions are found through a file index keyed on the literal prefix of each pattern, so
+    resolving a step compares it against a handful of candidates instead of regex-testing every step
+    definition in the project, and does not touch PSI until a definition actually matches.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>gherkin</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileBasedIndex implementation="dev.kristian.cucumberfast.index.JavaStepDefinitionIndex"/>
+        <fileBasedIndex implementation="dev.kristian.cucumberfast.index.GherkinStepIndex"/>
+
+        <codeInsight.lineMarkerProvider
+            language="JAVA"
+            implementationClass="dev.kristian.cucumberfast.navigation.StepDefinitionLineMarkerProvider"/>
+    </extensions>
+
+    <!-- Feature file -> Java resolution. Everything the Gherkin plugin builds on step resolution
+         (Ctrl+B, the undefined-step inspection, completion, rename) goes through this. -->
+    <extensions defaultExtensionNs="org.jetbrains.plugins.cucumber.steps">
+        <cucumberJvmExtensionPoint implementation="dev.kristian.cucumberfast.steps.JavaCucumberExtension"/>
+    </extensions>
+</idea-plugin>

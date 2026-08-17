@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+# The Gradle wrapper script is executed by /bin/sh on CI; CRLF would break it.
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+*.jar binary
+*.zip binary
+*.png binary
+*.svg text eol=lf

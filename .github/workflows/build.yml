@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # The wrapper jar is a binary in the repository; verify it is a genuine Gradle release.
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Downloading the IntelliJ Platform takes a while on a cold cache; setup-gradle keeps it warm.
+      - name: Build and test
+        run: ./gradlew build
+
+      - name: Upload plugin archive
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cucumber-fast-${{ github.sha }}
+          path: build/distributions/*.zip
+          if-no-files-found: error
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-report
+          path: build/reports/tests/test
