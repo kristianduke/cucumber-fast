@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseding a pull request push saves runner time; superseding a push to main would leave
+  # commits that were never verified.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -26,9 +28,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # Downloading the IntelliJ Platform takes a while on a cold cache; setup-gradle keeps it warm.
+      # `build` compiles and tests; the distribution zip comes from `buildPlugin`, which `build`
+      # does not depend on. Downloading the IntelliJ Platform takes a while on a cold cache;
+      # setup-gradle keeps it warm.
       - name: Build and test
-        run: ./gradlew build
+        run: ./gradlew build buildPlugin
 
       - name: Upload plugin archive
         if: success()
