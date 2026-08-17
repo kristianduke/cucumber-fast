@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Changed
+
+- Step resolution no longer goes through the Gherkin plugin's extension point, which asks every step
+  definition in the module about every step — from its reference, its undefined-step inspection and
+  its parameter highlighting, on every highlighting pass. Steps now resolve through the bucketed
+  index. Over a synthetic suite of 3,000 definitions this is roughly 14x faster, and no slower when
+  every step shares its opening words.
+- The step popup puts the file and line on their own third line, under the scenario name.
+
+### Added
+
+- Undefined-step inspection, step completion and step parameter highlighting, replacing the Gherkin
+  plugin's versions of each now that resolution has moved. Its undefined-step inspection is
+  suppressed so a step is never reported twice.
+- A benchmark comparing the bucketed lookup against the linear one over 3,000 step definitions.
+
+### Fixed
+
+- The bucketed lookup rebuilt every candidate step definition, and a smart pointer with it, on each
+  call, which made it several times slower than the linear pass it replaces. It now filters the
+  cached module list.
+
 ## [0.3.0]
 
 ### Added
@@ -50,7 +74,8 @@
 - Navigation between Gherkin steps and Java step definitions in both directions, resolved through a
   file index bucketed by each pattern's literal prefix rather than by scanning every definition.
 
-[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/kristianduke/cucumber-fast/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.1.0...v0.2.0

@@ -4,7 +4,6 @@ import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import org.jetbrains.plugins.cucumber.CucumberUtil
 import org.jetbrains.plugins.cucumber.psi.GherkinStep
 
 /**
@@ -103,12 +102,12 @@ class StepResolutionTest : BasePlatformTestCase() {
         assertTrue("expected a gutter marker for the matched steps, got $tooltips", tooltips.any { it.contains("2 Gherkin steps") })
     }
 
+    /** Goes through the same entry point as Ctrl+click, so it tests whichever reference wins. */
     private fun resolvedMethodAtCaret(): PsiMethod? {
-        val step = PsiTreeUtil.getParentOfType(
+        PsiTreeUtil.getParentOfType(
             myFixture.file.findElementAt(myFixture.caretOffset),
             GherkinStep::class.java,
         ) ?: error("no Gherkin step at the caret")
-        val reference = CucumberUtil.getCucumberStepReference(step) ?: error("no step reference")
-        return reference.resolve() as? PsiMethod
+        return GotoDeclarationAction.findTargetElement(project, myFixture.editor, myFixture.caretOffset) as? PsiMethod
     }
 }

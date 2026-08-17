@@ -30,9 +30,8 @@ class AmbiguousStepInspection : LocalInspectionTool() {
 
                 val stepText = step.substitutedName ?: return
                 val module = ModuleUtilCore.findModuleForPsiElement(step) ?: return
-                val scope = module.getModuleWithDependenciesAndLibrariesScope(true)
 
-                val matching = StepSearch.definitionsForStep(project, scope, stepText)
+                val matching = StepSearch.definitionsForStep(module, stepText)
                 if (matching.size < 2) return
 
                 // Two entries pointing at the same method are one definition, not an ambiguity.

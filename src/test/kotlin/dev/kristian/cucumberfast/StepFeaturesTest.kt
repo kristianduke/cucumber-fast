@@ -8,8 +8,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.kristian.cucumberfast.inspections.AmbiguousStepInspection
 import dev.kristian.cucumberfast.inspections.UnusedStepDefinitionInspection
 import dev.kristian.cucumberfast.steps.JavaStepDefinitionCreator
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
 import dev.kristian.cucumberfast.steps.StepUsages
-import org.jetbrains.plugins.cucumber.CucumberUtil
 import org.jetbrains.plugins.cucumber.psi.GherkinStep
 
 /** End-to-end checks for the features layered on top of step resolution. */
@@ -283,6 +283,7 @@ class StepFeaturesTest : BasePlatformTestCase() {
         PsiTreeUtil.getParentOfType(myFixture.file.findElementAt(myFixture.caretOffset), GherkinStep::class.java)
             ?: error("no Gherkin step at the caret")
 
+    /** Goes through the same entry point as Ctrl+click, so it tests whichever reference wins. */
     private fun resolveAtCaret() =
-        CucumberUtil.getCucumberStepReference(stepAtCaret())?.resolve()
+        GotoDeclarationAction.findTargetElement(project, myFixture.editor, myFixture.caretOffset)
 }

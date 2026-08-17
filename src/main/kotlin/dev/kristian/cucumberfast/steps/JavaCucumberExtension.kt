@@ -13,11 +13,18 @@ import org.jetbrains.plugins.cucumber.steps.AbstractCucumberExtension
 import org.jetbrains.plugins.cucumber.steps.AbstractStepDefinition
 
 /**
- * Plugs Java step definitions into the Gherkin plugin.
+ * Registers Java as a step definition language with the Gherkin plugin, without routing resolution
+ * through it.
  *
- * Registering here rather than contributing a separate reference is deliberate: the Gherkin
- * plugin's own reference, undefined-step inspection, completion, rename and "go to related" all
- * resolve through this extension point, so they all pick up the indexed implementation at once.
+ * The extension point's contract is to hand back *every* step definition in the module and let the
+ * caller filter them, which is a linear pass per step — and the Gherkin plugin runs it from three
+ * places on every highlighting pass: its reference, its undefined-step inspection, and its
+ * annotator's parameter highlighting. This plugin resolves steps through the bucketed index
+ * instead, so [loadStepsFor] and [getStepName] deliberately return nothing and the callers above
+ * short-circuit at no cost.
+ *
+ * The extension stays registered because other behaviour hangs off it that has nothing to do with
+ * resolution — notably [isGherkin6Supported], which is what allows `Rule:` to parse at all.
  */
 class JavaCucumberExtension : AbstractCucumberExtension() {
 
@@ -28,6 +35,8 @@ class JavaCucumberExtension : AbstractCucumberExtension() {
 
     override fun getStepFileType(): BDDFrameworkType = BDDFrameworkType(JavaFileType.INSTANCE)
 
+    override fun getStepDefinitionCreator(): StepDefinitionCreator = JavaStepDefinitionCreator()
+
     /**
      * Enables Gherkin 6 syntax (`Rule:`) unconditionally rather than probing the module's Cucumber
      * version. On a pre-6 runtime this only means the IDE parses a keyword the runtime would
@@ -35,10 +44,17 @@ class JavaCucumberExtension : AbstractCucumberExtension() {
      */
     override fun isGherkin6Supported(module: Module): Boolean = true
 
-    override fun getStepDefinitionCreator(): StepDefinitionCreator = JavaStepDefinitionCreator()
+    /**
+     * Empty by design: see the class comment. Resolution goes through
+     * `dev.kristian.cucumberfast.reference.FastCucumberStepReference`.
+     */
+    override fun loadStepsFor(featureFile: PsiFile?, module: Module): List<AbstractStepDefinition> = emptyList()
 
-    override fun loadStepsFor(featureFile: PsiFile?, module: Module): List<AbstractStepDefinition> =
-        StepSearch.allDefinitions(module)
+    /**
+     * Null makes `CucumberStepReference.multiResolveInner` return before it loads anything, which is
+     * the cheapest way to keep the Gherkin plugin's own reference from doing the work twice.
+     */
+    override fun getStepName(step: PsiElement): String? = null
 
     override fun getStepDefinitionContainers(featureFile: GherkinFile): Collection<PsiFile> {
         val module = ModuleUtilCore.findModuleForPsiElement(featureFile) ?: return emptyList()

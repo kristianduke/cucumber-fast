@@ -40,6 +40,15 @@ undefined-step inspection, step completion, rename, "go to related" — routes t
 them pick up the indexed implementation at once. A separate reference would resolve steps *and*
 leave the Gherkin plugin's own inspection flagging every one of them as undefined.
 
+Resolution itself does *not* go through that extension point. Its contract is to hand back every
+step definition in the module and let the caller filter them, and the Gherkin plugin runs that from
+three places on every highlighting pass — its reference, its undefined-step inspection, and its
+annotator's parameter highlighting. `JavaCucumberExtension` therefore returns nothing from
+`loadStepsFor` and `getStepName`, which makes all three short-circuit, and this plugin supplies its
+own reference, undefined-step inspection, completion and parameter highlighting on top of the
+bucketed index. The extension stays registered for what else hangs off it — notably
+`isGherkin6Supported`, which is what allows `Rule:` to parse.
+
 ### What makes it faster
 
 JetBrains' implementation (`CucumberStepHelper.findStepDefinitions`) builds *every* step definition
@@ -69,6 +78,28 @@ Three changes:
 The literal prefix does the same work twice over: it rejects a non-matching step with a
 `String.startsWith` before the regex engine is involved, and it is what the index key is derived
 from.
+
+### What the benchmark says
+
+`StepResolutionBenchmarkTest` builds a synthetic suite of 3,000 step definitions and times the
+bucketed lookup against the linear one over 500 resolutions:
+
+| Suite | Linear | Bucketed | |
+| --- | --- | --- | --- |
+| Steps starting many different ways | ~39ms | ~2ms | **~14x faster** |
+| Every step sharing its first two words | ~36ms | ~36ms | no better, no worse |
+
+The second row is the point of the second test: when bucketing cannot narrow anything it degrades to
+the linear cost rather than falling off a cliff.
+
+This comparison is conservative. The "linear" side is *this plugin's* linear pass, where each
+definition answers from indexed data with a literal-prefix pre-check; IntelliJ's own pass parses PSI
+and runs a regex per definition, and rebuilds the whole set whenever any file changes.
+
+The benchmark earned its place immediately: the first version of the bucketed lookup queried the
+index on every call and rebuilt a step definition — and a smart pointer — per candidate, which
+measured **7x slower** than the linear pass it was meant to beat. It now filters the cached
+module list instead.
 
 ### Pattern classification
 
@@ -225,12 +256,6 @@ doing it.
 
 ## Not done yet
 
-- **Feature → Java is not yet on the fast path.** The extension point contract hands back *all*
-  definitions and lets the Gherkin plugin filter them, so the bucketed lookup
-  (`StepSearch.definitionsForStep`) is written and tested but only the gutter marker uses it. The
-  per-definition work is already index-backed and PSI-free, so the linear pass is cheap; making it
-  sublinear needs a reference contributor of our own, which in turn needs the Gherkin plugin's
-  undefined-step inspection to be suppressed rather than fought.
 - **Scenarios cannot be run from the gutter.** The Gherkin plugin draws the run arrow beside
   `Scenario:` but registers no run configuration type or producer — those live in Cucumber for Java.
   Until this plugin supplies them, running a single scenario from the editor still needs that plugin
@@ -247,12 +272,19 @@ doing it.
 - **Unknown parameter types match permissively.** A `{colour}` with no `@ParameterType` anywhere
   becomes `(.*)` so navigation still works. Cucumber would refuse the step outright, so the IDE is
   more forgiving here than the runtime.
-- **Test coverage.** 57 tests: pattern logic, both scanners, snippet generation, and 14
-  `BasePlatformTestCase` checks covering resolution, the Ctrl+click path, both inspections, custom
-  parameter types, lambda and localized step definitions, and the generated step definition. The
-  code vision hint is verified only by the shared usage count underneath it. Nothing asserts the
-  performance claim — a benchmark over a synthetic suite of a few thousand step definitions is the
-  obvious next test.
+- **Step completion is a flat list.** Every definition in the module is offered, filtered by the
+  step text typed so far. The Gherkin plugin's own completion additionally understood table rows and
+  inserted parameter placeholders; that is not reproduced yet.
+- **Updates may not be offered promptly.** The IDE caches custom repository listings
+  (`RepositoryHelper`), so a new release can go unnoticed until Settings | Plugins | ⚙ |
+  *Check for Updates*. Serving `updatePlugins.xml` from a stable path instead of the
+  `releases/latest/download` redirect would remove one suspected cause, at the cost of everyone
+  re-entering the URL.
+- **Test coverage.** 69 tests: pattern logic, both scanners, snippet generation, a benchmark, and
+  `BasePlatformTestCase` checks covering resolution, the Ctrl+click path, all three inspections,
+  suppression of the superseded one, completion, the generated step definition, custom parameter
+  types, and lambda and localized step definitions. The code vision hint and the parameter
+  annotator are verified only by the lookups underneath them, not by their rendering.
 
 ## License
 

@@ -23,6 +23,11 @@ object StepSearch {
     private val MODULE_DEFINITIONS =
         Key.create<com.intellij.psi.util.CachedValue<List<IndexedJavaStepDefinition>>>("cucumberfast.module.definitions")
 
+    private val MODULE_BUCKETS =
+        Key.create<com.intellij.psi.util.CachedValue<Map<String, List<IndexedJavaStepDefinition>>>>(
+            "cucumberfast.module.buckets",
+        )
+
     /**
      * Every step definition visible from [module].
      *
@@ -39,22 +44,41 @@ object StepSearch {
         }, false)
     }
 
-    /** The definitions that could match [stepText] — its own buckets plus the catch-all bucket. */
-    fun definitionsForStep(project: Project, scope: GlobalSearchScope, stepText: String): List<IndexedJavaStepDefinition> {
-        if (DumbService.isDumb(project)) return emptyList()
-        val index = FileBasedIndex.getInstance()
-        val psiManager = PsiManager.getInstance(project)
-        val result = ArrayList<IndexedJavaStepDefinition>()
+    /**
+     * The definitions that match [stepText], found through its buckets rather than by asking every
+     * definition in the module.
+     *
+     * This filters the cached module list rather than querying the index again. Going back to the
+     * index per lookup means rebuilding a step definition — and with it a smart pointer — for every
+     * candidate, every time; measured against a synthetic suite that was several times *slower*
+     * than the linear pass it was supposed to beat.
+     */
+    fun definitionsForStep(module: Module, stepText: String): List<IndexedJavaStepDefinition> {
+        val buckets = buckets(module)
+        if (buckets.isEmpty()) return emptyList()
+
+        var result: MutableList<IndexedJavaStepDefinition>? = null
         for (key in StepPattern.lookupKeysForStepText(stepText)) {
-            index.processValues(JavaStepDefinitionIndex.NAME, key, null, { file, entries ->
-                val psiFile = psiManager.findFile(file)
-                if (psiFile != null) {
-                    entries.mapTo(result) { IndexedJavaStepDefinition(psiFile, it) }
-                }
-                true
-            }, scope)
+            val candidates = buckets[key] ?: continue
+            for (candidate in candidates) {
+                if (!candidate.matches(stepText)) continue
+                (result ?: ArrayList<IndexedJavaStepDefinition>(2).also { result = it }).add(candidate)
+            }
         }
-        return result.filter { it.matches(stepText) }
+        return result ?: emptyList()
+    }
+
+    /**
+     * The module's definitions grouped by the bucket their pattern belongs to, so a step reaches
+     * only the handful that could match it. Derived from — and invalidated with — [allDefinitions].
+     */
+    private fun buckets(module: Module): Map<String, List<IndexedJavaStepDefinition>> {
+        val project = module.project
+        if (DumbService.isDumb(project)) return emptyMap()
+        return CachedValuesManager.getManager(project).getCachedValue(module, MODULE_BUCKETS, {
+            val grouped = allDefinitions(module).groupBy { it.pattern.indexKey }
+            CachedValueProvider.Result.create(grouped, indexTracker(project))
+        }, false)
     }
 
     /** The feature steps [pattern] defines, as (file, step) pairs — no Gherkin PSI is built. */

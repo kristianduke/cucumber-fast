@@ -33,6 +33,28 @@
             enabledByDefault="true"
             level="WEAK WARNING"
             implementationClass="dev.kristian.cucumberfast.inspections.UnusedStepDefinitionInspection"/>
+        <!-- Feature -> Java resolution, bucketed by the step's leading words. -->
+        <psi.referenceContributor
+            language="Gherkin"
+            implementation="dev.kristian.cucumberfast.reference.GherkinStepReferenceContributor"/>
+        <completion.contributor
+            language="Gherkin"
+            implementationClass="dev.kristian.cucumberfast.completion.StepCompletionContributor"/>
+        <annotator
+            language="Gherkin"
+            implementationClass="dev.kristian.cucumberfast.annotator.StepParameterAnnotator"/>
+        <lang.inspectionSuppressor
+            language="Gherkin"
+            implementationClass="dev.kristian.cucumberfast.inspections.GherkinInspectionSuppressor"/>
+
+        <localInspection
+            language="Gherkin"
+            shortName="CucumberFastUndefinedStep"
+            displayName="Undefined Cucumber step"
+            groupName="Cucumber"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="dev.kristian.cucumberfast.inspections.UndefinedStepInspection"/>
         <localInspection
             language="Gherkin"
             shortName="CucumberFastAmbiguousStep"

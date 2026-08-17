@@ -1,0 +1,18 @@
+<html>
+<body>
+Reports a step that no step definition matches.
+<p>
+    Cucumber reports such a step as undefined and does not run the scenario. The quick fix writes the
+    missing method, deriving <code>{int}</code>, <code>{string}</code> and <code>{float}</code>
+    parameters from the step text.
+</p>
+<p>
+    The fix adds the method to the file that already holds the most step definitions. With no step
+    definitions anywhere in the module it is not offered, rather than guessing at a package.
+</p>
+<p>
+    This replaces the Gherkin plugin's own <i>Undefined step</i> inspection, which is suppressed:
+    that one asks every step definition in the module about every step, on every highlighting pass.
+</p>
+</body>
+</html>

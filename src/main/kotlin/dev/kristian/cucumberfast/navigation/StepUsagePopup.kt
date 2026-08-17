@@ -76,7 +76,12 @@ object StepUsagePopup {
             // BoxLayout centres children whose alignmentX differs, which would stagger the two rows.
             alignmentX = Component.LEFT_ALIGNMENT
         }
-        private val contextLabel = JBLabel().apply {
+        private val scenarioLabel = JBLabel().apply {
+            font = JBUI.Fonts.smallFont()
+            border = JBUI.Borders.emptyLeft(20)
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
+        private val locationLabel = JBLabel().apply {
             font = JBUI.Fonts.smallFont()
             border = JBUI.Borders.emptyLeft(20)
             alignmentX = Component.LEFT_ALIGNMENT
@@ -86,7 +91,8 @@ object StepUsagePopup {
             border = JBUI.Borders.empty(4, 8)
             isOpaque = true
             add(stepLabel)
-            add(contextLabel)
+            add(scenarioLabel)
+            add(locationLabel)
         }
 
         override fun getListCellRendererComponent(
@@ -98,17 +104,19 @@ object StepUsagePopup {
         ): Component {
             val background = if (selected) list.selectionBackground else list.background
             val foreground = if (selected) list.selectionForeground else list.foreground
+            val secondary = if (selected) foreground else UIUtil.getContextHelpForeground()
             panel.background = background
-            stepLabel.background = background
-            contextLabel.background = background
+            for (label in listOf(stepLabel, scenarioLabel, locationLabel)) {
+                label.background = background
+            }
             stepLabel.foreground = foreground
-            contextLabel.foreground = if (selected) foreground else UIUtil.getContextHelpForeground()
+            scenarioLabel.foreground = secondary
+            locationLabel.foreground = secondary
 
             stepLabel.text = value?.stepText.orEmpty()
-            contextLabel.text = listOfNotNull(
-                value?.container?.takeIf { it.isNotEmpty() },
-                value?.location,
-            ).joinToString("  —  ")
+            scenarioLabel.text = value?.container.orEmpty()
+            scenarioLabel.isVisible = !scenarioLabel.text.isNullOrEmpty()
+            locationLabel.text = value?.location.orEmpty()
             return panel
         }
     }
