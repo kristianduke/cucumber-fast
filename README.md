@@ -100,13 +100,48 @@ curl -X POST https://plugins.jetbrains.com/api/search/compatibleUpdates \
 Code instrumentation is off in the build (`instrumentCode = false`): there is no Java source and no
 GUI forms, and the ant-based instrumenter fails against the Microsoft JDK on this machine.
 
-## Distributing inside an organisation
+## Installing it
 
-The plugin is served from a custom plugin repository, which is just two files on any HTTPS host —
-an internal web server, an S3 bucket, Artifactory, GitHub Pages. No JetBrains Marketplace account,
-no plugin signing, no review.
+The plugin is served from a custom plugin repository — no JetBrains Marketplace account, no plugin
+signing, no review. GitHub releases host it.
 
-### Publishing a version
+### For everyone using the plugin, once
+
+Settings | Plugins | ⚙ | **Manage Plugin Repositories…** | **+** →
+
+```
+https://github.com/kristianduke/cucumber-fast/releases/latest/download/updatePlugins.xml
+```
+
+"Cucumber Fast" then appears under the Marketplace tab and installs like any other plugin. That URL
+is a permanent redirect to whichever release is newest, so updates arrive as the normal update
+notification — the URL is never touched again.
+
+IDEA fetches this URL anonymously, with no way to supply a token. That is why the repository is
+public; a private one cannot be used as a plugin repository at all.
+
+### Cutting a release
+
+Tag it and push. `.github/workflows/release.yml` builds the plugin, generates the
+`updatePlugins.xml` pointing at the new asset, and publishes both to a GitHub release:
+
+```
+# bump pluginVersion in gradle.properties first, then
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+There is also a `workflow_dispatch` trigger taking the version as an input, if you would rather
+release from the Actions tab than from a tag. Either way the version has to go up, or installed
+IDEs will not offer the update.
+
+`.github/workflows/build.yml` runs the tests on every push and pull request, and attaches the
+plugin zip to the run so a branch build can be installed from disk without cutting a release.
+
+### Hosting it somewhere else instead
+
+The same two files work on any HTTPS host — an internal web server, S3, Artifactory. Point the
+build at where they will live:
 
 ```
 ./gradlew buildPlugin -PpluginRepositoryUrl=https://your-host/idea-plugins
