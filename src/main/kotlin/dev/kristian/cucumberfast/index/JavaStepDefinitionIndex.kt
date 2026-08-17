@@ -30,6 +30,7 @@ class JavaStepDefinitionIndex : FileBasedIndexExtension<String, List<StepDefinit
     override fun getIndexer(): DataIndexer<String, List<StepDefinitionEntry>, FileContent> =
         DataIndexer { content ->
             JavaStepDefinitionScanner.scan(content.contentAsText)
+                .stepDefinitions
                 .groupBy { StepPattern.compile(it.expression).indexKey }
         }
 
@@ -48,20 +49,23 @@ class JavaStepDefinitionIndex : FileBasedIndexExtension<String, List<StepDefinit
         override fun save(out: DataOutput, value: List<StepDefinitionEntry>) {
             DataInputOutputUtil.writeINT(out, value.size)
             for (entry in value) {
-                IOUtil.writeUTF(out, entry.annotationName)
+                IOUtil.writeUTF(out, entry.keyword)
                 IOUtil.writeUTF(out, entry.expression)
-                DataInputOutputUtil.writeINT(out, entry.annotationOffset)
+                DataInputOutputUtil.writeINT(out, entry.offset)
+                DataInputOutputUtil.writeINT(out, entry.kind.ordinal)
             }
         }
 
         override fun read(input: DataInput): List<StepDefinitionEntry> {
             val size = DataInputOutputUtil.readINT(input)
             val result = ArrayList<StepDefinitionEntry>(size)
+            val kinds = StepDefinitionKind.entries
             repeat(size) {
-                val annotationName = IOUtil.readUTF(input)
+                val keyword = IOUtil.readUTF(input)
                 val expression = IOUtil.readUTF(input)
                 val offset = DataInputOutputUtil.readINT(input)
-                result.add(StepDefinitionEntry(annotationName, expression, offset))
+                val kind = kinds[DataInputOutputUtil.readINT(input)]
+                result.add(StepDefinitionEntry(keyword, expression, offset, kind))
             }
             return result
         }
@@ -71,6 +75,6 @@ class JavaStepDefinitionIndex : FileBasedIndexExtension<String, List<StepDefinit
         val NAME: ID<String, List<StepDefinitionEntry>> = ID.create("cucumberfast.java.step.definitions")
 
         /** Bump whenever the scanner, the key scheme or the serialized form changes. */
-        private const val VERSION = 1
+        private const val VERSION = 2
     }
 }

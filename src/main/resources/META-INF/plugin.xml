@@ -16,10 +16,31 @@
     <extensions defaultExtensionNs="com.intellij">
         <fileBasedIndex implementation="dev.kristian.cucumberfast.index.JavaStepDefinitionIndex"/>
         <fileBasedIndex implementation="dev.kristian.cucumberfast.index.GherkinStepIndex"/>
+        <fileBasedIndex implementation="dev.kristian.cucumberfast.index.ParameterTypeIndex"/>
 
+        <!-- Java -> feature navigation. Both read the same cached lookup. -->
         <codeInsight.lineMarkerProvider
             language="JAVA"
             implementationClass="dev.kristian.cucumberfast.navigation.StepDefinitionLineMarkerProvider"/>
+        <codeInsight.daemonBoundCodeVisionProvider
+            implementation="dev.kristian.cucumberfast.navigation.StepUsagesCodeVisionProvider"/>
+
+        <localInspection
+            language="JAVA"
+            shortName="CucumberFastUnusedStepDefinition"
+            displayName="Unused Cucumber step definition"
+            groupName="Cucumber"
+            enabledByDefault="true"
+            level="WEAK WARNING"
+            implementationClass="dev.kristian.cucumberfast.inspections.UnusedStepDefinitionInspection"/>
+        <localInspection
+            language="Gherkin"
+            shortName="CucumberFastAmbiguousStep"
+            displayName="Ambiguous Cucumber step"
+            groupName="Cucumber"
+            enabledByDefault="true"
+            level="WARNING"
+            implementationClass="dev.kristian.cucumberfast.inspections.AmbiguousStepInspection"/>
     </extensions>
 
     <!-- Feature file -> Java resolution. Everything the Gherkin plugin builds on step resolution

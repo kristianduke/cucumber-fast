@@ -1,5 +1,7 @@
 package dev.kristian.cucumberfast.expression
 
+import com.intellij.psi.PsiElement
+import org.jetbrains.plugins.cucumber.ParameterTypeManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -95,10 +97,39 @@ class StepPatternTest {
     }
 
     @Test
-    fun `an unknown parameter type does not match everything`() {
-        val pattern = StepPattern.compile("I have {colour} cukes")
-        assertFalse(pattern.anchored)
-        assertFalse(pattern.matches("something entirely different"))
+    fun `a custom parameter type is bucketed before it can be resolved`() {
+        // The index has no project context, so the bucket must not depend on resolving {colour}.
+        val pattern = StepPattern.compile("I have a {colour} cuke")
+        assertTrue(pattern.anchored)
+        assertEquals("i have", pattern.indexKey)
+        assertTrue(pattern.usesCustomParameterTypes)
+    }
+
+    @Test
+    fun `resolving a custom parameter type makes the pattern match`() {
+        val colours = object : ParameterTypeManager {
+            override fun getParameterTypeValue(name: String): String? = if (name == "colour") "red|blue" else null
+            override fun getParameterTypeDeclaration(name: String): PsiElement? = null
+        }
+        val pattern = StepPattern.compile("I have a {colour} cuke").withParameterTypes(colours)
+
+        assertTrue(pattern.matches("I have a red cuke"))
+        assertFalse(pattern.matches("I have a green cuke"))
+        // Classification is unchanged by resolution, so the bucket still agrees with the step text.
+        assertEquals("i have", pattern.indexKey)
+        assertTrue(pattern.indexKey in StepPattern.lookupKeysForStepText("I have a red cuke"))
+    }
+
+    @Test
+    fun `built-in parameter types need no resolution`() {
+        assertFalse(StepPattern.compile("I have {int} cukes").usesCustomParameterTypes)
+        assertFalse(StepPattern.compile("I have a {string} cuke").usesCustomParameterTypes)
+    }
+
+    @Test
+    fun `a regex quantifier is not mistaken for a parameter type`() {
+        val pattern = StepPattern.compile("I have a{2} cukes")
+        assertTrue(pattern.isRegex)
     }
 
     @Test

@@ -1,0 +1,14 @@
+<html>
+<body>
+Reports step definitions that no step in any feature file matches.
+<p>
+    Such a definition is dead code: it is compiled and loaded by Cucumber, but never executed. They
+    accumulate as feature files are reworded, and nothing in a normal test run points them out.
+</p>
+<p>
+    Feature files are searched across the project. A step definition used only by a feature file
+    outside the project — a shared suite consumed as a dependency — is reported even though it is
+    used, which is why this is a weak warning.
+</p>
+</body>
+</html>

@@ -73,6 +73,7 @@ class GherkinStepIndex : FileBasedIndexExtension<String, List<GherkinStepEntry>>
     companion object {
         val NAME: ID<String, List<GherkinStepEntry>> = ID.create("cucumberfast.gherkin.steps")
 
-        private const val VERSION = 1
+        /** Bump whenever the scanner or the serialized form changes. */
+        private const val VERSION = 2
     }
 }

@@ -54,6 +54,29 @@ class GherkinStepScannerTest {
     }
 
     @Test
+    fun `localized feature files are scanned with their own keywords`() {
+        val feature = """
+            # language: de
+            Funktionalität: Gurken
+              Szenario: Essen
+                Angenommen ich habe 42 Gurken
+                Wenn ich eine Stunde warte
+                Dann bin ich satt
+        """.trimIndent()
+
+        assertEquals(
+            listOf("ich habe 42 Gurken", "ich eine Stunde warte", "bin ich satt"),
+            GherkinStepScanner.scan(feature).map { it.text },
+        )
+    }
+
+    @Test
+    fun `an unknown language falls back to english rather than indexing nothing`() {
+        val feature = "# language: zz\nFeature: F\n  Scenario: S\n    Given a step\n"
+        assertEquals(listOf("a step"), GherkinStepScanner.scan(feature).map { it.text })
+    }
+
+    @Test
     fun `keywords need a separator and a body`() {
         val feature = "Feature: F\n  Scenario: S\n    Givenish text\n    Given\n    Whenever\n"
         assertEquals(emptyList<String>(), GherkinStepScanner.scan(feature).map { it.text })

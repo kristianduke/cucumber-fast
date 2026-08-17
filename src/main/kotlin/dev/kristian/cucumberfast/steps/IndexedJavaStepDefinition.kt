@@ -5,11 +5,13 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.util.PsiTreeUtil
 import dev.kristian.cucumberfast.expression.StepPattern
 import dev.kristian.cucumberfast.index.StepDefinitionEntry
+import dev.kristian.cucumberfast.index.StepDefinitionKind
 import org.jetbrains.plugins.cucumber.steps.AbstractStepDefinition
 
 /**
@@ -26,9 +28,18 @@ class IndexedJavaStepDefinition(
     private val entry: StepDefinitionEntry,
 ) : AbstractStepDefinition(containingFile) {
 
-    val pattern: StepPattern = StepPattern.compile(entry.expression)
+    /**
+     * Resolved lazily: a pattern naming a project-defined `@ParameterType` needs the project's
+     * declarations, which are not available while indexing.
+     */
+    val pattern: StepPattern by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        CucumberParameterTypes.getInstance(containingFile.project).patternFor(entry.expression)
+    }
 
-    private var methodPointer: SmartPsiElementPointer<PsiMethod>? = null
+    /** `Given`, `Angenommen`, … — the keyword this definition was declared with. */
+    val keyword: String get() = entry.keyword
+
+    private var elementPointer: SmartPsiElementPointer<PsiElement>? = null
     private var resolveFailed = false
 
     override fun matches(stepName: String): Boolean = pattern.matches(stepName)
@@ -40,29 +51,35 @@ class IndexedJavaStepDefinition(
     override fun getCucumberRegexFromElement(element: PsiElement?): String = entry.expression
 
     override fun getVariableNames(): List<String> =
-        method()?.parameterList?.parameters?.map { it.name } ?: emptyList()
+        (getElement() as? PsiMethod)?.parameterList?.parameters?.map { it.name } ?: emptyList()
 
-    override fun getElement(): PsiElement? = method()
-
-    private fun method(): PsiMethod? {
-        methodPointer?.let { return it.element }
+    override fun getElement(): PsiElement? {
+        elementPointer?.let { return it.element }
         if (resolveFailed) return null
 
-        val method = resolveMethod()
-        if (method == null) {
+        val element = resolveElement()
+        if (element == null) {
             resolveFailed = true
             return null
         }
-        methodPointer = SmartPointerManager.getInstance(containingFile.project).createSmartPsiElementPointer(method)
-        return method
+        elementPointer = SmartPointerManager.getInstance(containingFile.project).createSmartPsiElementPointer(element)
+        return element
     }
 
-    private fun resolveMethod(): PsiMethod? {
-        if (!containingFile.isValid || entry.annotationOffset >= containingFile.textLength) return null
-        val leaf = containingFile.findElementAt(entry.annotationOffset) ?: return null
-        val annotation = PsiTreeUtil.getParentOfType(leaf, PsiAnnotation::class.java) ?: return null
-        if (!isStepAnnotation(annotation)) return null
-        return PsiTreeUtil.getParentOfType(annotation, PsiMethod::class.java)
+    private fun resolveElement(): PsiElement? {
+        if (!containingFile.isValid || entry.offset >= containingFile.textLength) return null
+        val leaf = containingFile.findElementAt(entry.offset) ?: return null
+        return when (entry.kind) {
+            StepDefinitionKind.ANNOTATION -> {
+                val annotation = PsiTreeUtil.getParentOfType(leaf, PsiAnnotation::class.java) ?: return null
+                if (!isStepAnnotation(annotation)) return null
+                PsiTreeUtil.getParentOfType(annotation, PsiMethod::class.java)
+            }
+
+            // A lambda step definition has no method of its own; the call registering it is what
+            // the user wants to land on.
+            StepDefinitionKind.LAMBDA -> PsiTreeUtil.getParentOfType(leaf, PsiMethodCallExpression::class.java)
+        }
     }
 
     /**

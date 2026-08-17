@@ -9,11 +9,22 @@
 An IntelliJ IDEA plugin that links Gherkin feature files to Java step definitions and back — the
 job "Cucumber for Java" does, with resolution built on a file index instead of a linear scan.
 
-## Status
+## What it does
 
-Working vertical slice: feature → Java resolution (Ctrl+B, undefined-step inspection, completion,
-rename all go through it) and a gutter marker from a step definition method to the feature steps it
-implements. See [Not done yet](#not-done-yet).
+| | |
+| --- | --- |
+| **Feature → Java** | Ctrl+B / Ctrl+click from a step to its definition. The Gherkin plugin's undefined-step inspection, step completion and rename resolve through the same path. |
+| **Java → feature** | Gutter icon and a code vision hint (`3 Gherkin steps`) above each step definition, leading to the steps it implements. |
+| **Unused step definitions** | Weak warning on a definition no feature file uses — dead code a test run never points out. |
+| **Ambiguous steps** | Warning on a step two definitions match, which Cucumber fails at runtime and the IDE otherwise hides. |
+| **Create step definition** | The quick fix on an undefined step writes the method, with `{int}`/`{string}`/`{float}` parameters derived from the step text. |
+
+Recognised: annotation and `io.cucumber.java8` lambda step definitions, localized annotations
+(`io.cucumber.java.de.Angenommen`) and localized feature files (`# language: de`), and project
+`@ParameterType` declarations.
+
+See [Not done yet](#not-done-yet) for what is missing — the biggest gap being that scenarios cannot
+be *run* from the gutter.
 
 ## How it is put together
 
@@ -74,14 +85,32 @@ only for patterns carrying regex syntax a Cucumber expression could not contain 
 | --- | --- |
 | `expression/StepPattern.kt` | Pattern classification, regex compilation, literal prefix, index keys |
 | `expression/StandardParameterTypes.kt` | Built-in `{int}`, `{word}`, … parameter types |
-| `index/JavaStepDefinitionScanner.kt` | Lexer-only scan of Java sources for step annotations |
-| `index/GherkinStepScanner.kt` | Line scan of `.feature` files for steps |
+| `index/JavaStepDefinitionScanner.kt` | Lexer-only scan of Java sources for step definitions and `@ParameterType` |
+| `index/GherkinStepScanner.kt` | Line scan of `.feature` files, keywords per `# language:` |
 | `index/JavaStepDefinitionIndex.kt` | Step definitions, bucketed by pattern prefix |
 | `index/GherkinStepIndex.kt` | Feature steps, bucketed by leading words (reverse direction) |
+| `index/ParameterTypeIndex.kt` | Project `@ParameterType` declarations by name |
 | `steps/IndexedJavaStepDefinition.kt` | `AbstractStepDefinition` that resolves PSI only on a match |
 | `steps/StepSearch.kt` | Index queries in both directions, plus the module-level cache |
+| `steps/StepUsages.kt` | Which feature steps a definition implements, cached and shared |
+| `steps/CucumberParameterTypes.kt` | Resolves `{colour}` against the project's declarations |
+| `steps/StepSnippet.kt` | Step text → expression, method name and typed parameters |
 | `steps/JavaCucumberExtension.kt` | The `cucumberJvmExtensionPoint` registration |
+| `steps/JavaStepDefinitionCreator.kt` | Generates the step definition for the quick fix |
 | `navigation/StepDefinitionLineMarkerProvider.kt` | Java → feature gutter marker |
+| `navigation/StepUsagesCodeVisionProvider.kt` | The `N Gherkin steps` hint above a definition |
+| `inspections/` | Unused step definition, ambiguous step |
+
+### Where the parameter types fit
+
+A project-defined `{colour}` changes what a pattern *matches* but not which bucket it belongs in, so
+classification, literal prefix and index key are derived from the pattern text alone — the index has
+no project context and could not resolve declarations anyway. Only the regex needs them, and only
+for the patterns that name a custom type, so those are re-compiled on the query side and cached
+until the declarations change.
+
+Without this, such a pattern does not merely miss its bucket: IntelliJ leaves the unresolved
+`{colour}` sitting in the regex, where it matches nothing at all.
 
 ## Building
 
@@ -202,16 +231,28 @@ doing it.
   per-definition work is already index-backed and PSI-free, so the linear pass is cheap; making it
   sublinear needs a reference contributor of our own, which in turn needs the Gherkin plugin's
   undefined-step inspection to be suppressed rather than fought.
-- **Localized keywords.** Only English Gherkin keywords and English (`io.cucumber.java.en`)
-  annotations are recognised. A localized feature file contributes nothing to the reverse index.
-- **Custom parameter types.** `@ParameterType` declarations are not resolved; an expression using
-  one falls back to the slow path instead of matching incorrectly.
-- **Java 8 lambda step definitions** (`Given("…", () -> {})`) are not indexed — only annotations.
+- **Scenarios cannot be run from the gutter.** The Gherkin plugin draws the run arrow beside
+  `Scenario:` but registers no run configuration type or producer — those live in Cucumber for Java.
+  Until this plugin supplies them, running a single scenario from the editor still needs that plugin
+  installed. This is the largest remaining gap and the one that decides whether this is a
+  replacement or only a navigation plugin.
+- **Glue paths are not checked.** A step definition outside the glue configured for the run is
+  linked here but never found at runtime. Worth doing once run configurations exist.
+- **Localized lambda step definitions.** `io.cucumber.java8.En` lambdas are recognised by their
+  English keywords; the localized interfaces (`io.cucumber.java8.De`) are not.
+- **Wildcard-imported localized annotations.** `import io.cucumber.java.de.*` makes every annotation
+  in the file a candidate, filtered later by package when a step matches. Correct, but it puts junk
+  in the index.
 - **Step text blocks.** A pattern written as a Java text block is skipped by the scanner.
-- **"Create step definition"** creates the container class but does not yet generate the method.
-- **Test coverage.** 31 tests: the pattern logic, both scanners, and five `BasePlatformTestCase`
-  checks covering resolution end to end, including the Ctrl+click path itself. Nothing yet asserts the performance claim — a benchmark
-  over a synthetic suite of a few thousand step definitions is the obvious next test.
+- **Unknown parameter types match permissively.** A `{colour}` with no `@ParameterType` anywhere
+  becomes `(.*)` so navigation still works. Cucumber would refuse the step outright, so the IDE is
+  more forgiving here than the runtime.
+- **Test coverage.** 57 tests: pattern logic, both scanners, snippet generation, and 14
+  `BasePlatformTestCase` checks covering resolution, the Ctrl+click path, both inspections, custom
+  parameter types, lambda and localized step definitions, and the generated step definition. The
+  code vision hint is verified only by the shared usage count underneath it. Nothing asserts the
+  performance claim — a benchmark over a synthetic suite of a few thousand step definitions is the
+  obvious next test.
 
 ## License
 

@@ -1,0 +1,15 @@
+<html>
+<body>
+Reports a step that more than one step definition matches.
+<p>
+    Cucumber refuses to guess: a step matched by two definitions fails the scenario with
+    <code>AmbiguousStepDefinitionsException</code>. Without this inspection the problem is invisible
+    until the suite runs, because the IDE quietly resolves such a step to whichever definition has
+    the longest pattern.
+</p>
+<p>
+    Usually one of the two patterns is meant to be narrower than it is — an unanchored regular
+    expression, or a <code>{word}</code> where a literal was intended.
+</p>
+</body>
+</html>
