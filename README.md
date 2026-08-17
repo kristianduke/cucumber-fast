@@ -3,6 +3,9 @@
 
 # Cucumber Fast
 
+[![Build](https://github.com/kristianduke/cucumber-fast/actions/workflows/build.yml/badge.svg)](https://github.com/kristianduke/cucumber-fast/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 An IntelliJ IDEA plugin that links Gherkin feature files to Java step definitions and back — the
 job "Cucumber for Java" does, with resolution built on a file index instead of a linear scan.
 
@@ -209,3 +212,7 @@ doing it.
 - **Test coverage.** 31 tests: the pattern logic, both scanners, and five `BasePlatformTestCase`
   checks covering resolution end to end, including the Ctrl+click path itself. Nothing yet asserts the performance claim — a benchmark
   over a synthetic suite of a few thousand step definitions is the obvious next test.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
