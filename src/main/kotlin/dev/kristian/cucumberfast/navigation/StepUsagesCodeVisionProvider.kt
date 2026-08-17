@@ -2,15 +2,12 @@ package dev.kristian.cucumberfast.navigation
 
 import com.intellij.codeInsight.codeVision.CodeVisionRelativeOrdering
 import com.intellij.codeInsight.hints.codeVision.CodeVisionProviderBase
-import com.intellij.ide.util.DefaultPsiElementCellRenderer
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.project.DumbService
 import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiMethod
-import com.intellij.pom.Navigatable
 import dev.kristian.cucumberfast.steps.StepUsages
 import java.awt.event.MouseEvent
 
@@ -45,18 +42,7 @@ class StepUsagesCodeVisionProvider : CodeVisionProviderBase() {
 
     override fun handleClick(editor: Editor, element: PsiElement, event: MouseEvent?) {
         val method = element as? PsiMethod ?: return
-        val targets = StepUsages.resolve(method.project, StepUsages.of(method))
-        when (targets.size) {
-            0 -> Unit
-            1 -> (targets.single() as? Navigatable)?.navigate(true)
-            else -> JBPopupFactory.getInstance()
-                .createPopupChooserBuilder(targets)
-                .setTitle("Gherkin Steps")
-                .setRenderer(DefaultPsiElementCellRenderer())
-                .setItemChosenCallback { (it as? Navigatable)?.navigate(true) }
-                .createPopup()
-                .showInBestPositionFor(editor)
-        }
+        StepUsagePopup.show(method.project, StepUsages.of(method), editor, event)
     }
 
     companion object {

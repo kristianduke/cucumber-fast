@@ -83,6 +83,9 @@ intellijPlatform {
 tasks {
     test {
         useJUnit()
+        // Platform assertions are how the IDE reports contract violations (such as putting PSI in a
+        // popup model); tests must fail on them rather than pass quietly.
+        jvmArgs("-ea")
     }
 }
 

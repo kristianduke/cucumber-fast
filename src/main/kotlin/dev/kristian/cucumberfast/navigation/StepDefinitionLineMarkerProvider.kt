@@ -1,5 +1,6 @@
 package dev.kristian.cucumberfast.navigation
 
+import com.intellij.codeInsight.daemon.GutterIconNavigationHandler
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerProvider
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder
@@ -18,6 +19,9 @@ import javax.swing.Icon
  * Deciding whether to show the icon uses index data only — the step texts, not their PSI. Feature
  * files are parsed lazily, when the popup is opened, so a method with a hundred call sites costs
  * the same to highlight as one with none.
+ *
+ * Clicking is handled by [StepUsagePopup] rather than the builder's own popup, so the gutter and
+ * the code vision hint show the same rows and the same scenario preview.
  */
 class StepDefinitionLineMarkerProvider : RelatedItemLineMarkerProvider() {
 
@@ -39,7 +43,12 @@ class StepDefinitionLineMarkerProvider : RelatedItemLineMarkerProvider() {
         val usages = StepUsages.of(method)
         if (usages.isEmpty()) return
 
+        // Targets still feed "go to related" and the builder's own empty-state handling; the click
+        // itself goes through the shared popup.
         val targets = NotNullLazyValue.lazy<Collection<PsiElement>> { StepUsages.resolve(project, usages) }
+        val navigationHandler = GutterIconNavigationHandler<PsiElement> { event, _ ->
+            StepUsagePopup.show(project, StepUsages.of(method), null, event)
+        }
 
         result.add(
             NavigationGutterIconBuilder.create(CucumberIcons.Cucumber)
@@ -49,7 +58,7 @@ class StepDefinitionLineMarkerProvider : RelatedItemLineMarkerProvider() {
                 )
                 .setPopupTitle("Gherkin Steps")
                 .setEmptyPopupText("No Gherkin steps found")
-                .createLineMarkerInfo(element),
+                .createLineMarkerInfo(element, navigationHandler),
         )
     }
 }

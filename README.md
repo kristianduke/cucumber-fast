@@ -14,7 +14,7 @@ job "Cucumber for Java" does, with resolution built on a file index instead of a
 | | |
 | --- | --- |
 | **Feature → Java** | Ctrl+B / Ctrl+click from a step to its definition. The Gherkin plugin's undefined-step inspection, step completion and rename resolve through the same path. |
-| **Java → feature** | Gutter icon and a code vision hint (`3 Gherkin steps`) above each step definition, leading to the steps it implements. |
+| **Java → feature** | Gutter icon and a code vision hint (`3 Gherkin steps`) above each step definition. Both open the same popup, where every row names the feature and scenario the step belongs to, and moving over a row previews that whole scenario with the step marked. |
 | **Unused step definitions** | Weak warning on a definition no feature file uses — dead code a test run never points out. |
 | **Ambiguous steps** | Warning on a step two definitions match, which Cucumber fails at runtime and the IDE otherwise hides. |
 | **Create step definition** | The quick fix on an undefined step writes the method, with `{int}`/`{string}`/`{float}` parameters derived from the step text. |
