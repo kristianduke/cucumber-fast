@@ -24,8 +24,12 @@ class UnusedStepDefinitionInspection : AbstractBaseJavaLocalInspectionTool() {
         object : JavaElementVisitor() {
             override fun visitMethod(method: PsiMethod) {
                 if (DumbService.isDumb(method.project)) return
-                if (!StepUsages.isStepDefinition(method)) return
-                if (StepUsages.of(method).isNotEmpty()) return
+                val info = StepUsages.info(method)
+                if (!info.isStepDefinition) return
+                // `@Given(SOME_CONSTANT)` cannot be matched against anything, so "no feature file
+                // uses it" would say more about this plugin than about the code.
+                if (!info.hasReadablePattern) return
+                if (info.usages.isNotEmpty()) return
 
                 val nameIdentifier = method.nameIdentifier ?: return
                 holder.registerProblem(

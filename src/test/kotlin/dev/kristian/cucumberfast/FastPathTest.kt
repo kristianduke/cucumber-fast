@@ -1,8 +1,13 @@
 package dev.kristian.cucumberfast
 
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import dev.kristian.cucumberfast.reference.FastCucumberStepReference
 import dev.kristian.cucumberfast.inspections.UndefinedStepInspection
+import org.jetbrains.plugins.cucumber.CucumberUtil
 import org.jetbrains.plugins.cucumber.inspections.CucumberStepInspection
+import org.jetbrains.plugins.cucumber.psi.GherkinStep
 
 /**
  * The behaviour that moved off the Gherkin plugin's extension point and onto the indexed lookup:
@@ -102,6 +107,36 @@ class FastPathTest : BasePlatformTestCase() {
             generated.contains("""("I have {int} pineapples in my {string} basket")"""),
         )
         assertTrue(generated.contains("i_have_pineapples_in_my_basket(Integer int1, String string1)"))
+    }
+
+    /**
+     * The Gherkin plugin's rename, its scenario-to-outline intention and its parameter highlighting
+     * all take the *first* `CucumberStepReference` on a step and resolve through it. That has to be
+     * this plugin's reference: the one the Gherkin plugin contributes no longer resolves, because
+     * the extension point behind it deliberately returns nothing.
+     */
+    fun testTheGherkinPluginsOwnLookupFindsTheFastReference() {
+        addStepDefinitions()
+        myFixture.configureByText(
+            "test.feature",
+            """
+            Feature: Cukes
+              Scenario: Eating
+                Given I have 42 cu<caret>kes
+            """.trimIndent(),
+        )
+        val step = PsiTreeUtil.getParentOfType(
+            myFixture.file.findElementAt(myFixture.caretOffset),
+            GherkinStep::class.java,
+        )!!
+
+        val reference = CucumberUtil.getCucumberStepReference(step)
+        assertNotNull("the Gherkin plugin must still find a step reference", reference)
+        assertTrue(
+            "it must find the indexed one, not the extension-point one",
+            reference is FastCucumberStepReference,
+        )
+        assertEquals("iHaveCukes", (reference!!.resolveToDefinition()?.element as? PsiMethod)?.name)
     }
 
     fun testCompletionOffersStepDefinitions() {

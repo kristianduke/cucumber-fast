@@ -44,10 +44,15 @@ Resolution itself does *not* go through that extension point. Its contract is to
 step definition in the module and let the caller filter them, and the Gherkin plugin runs that from
 three places on every highlighting pass — its reference, its undefined-step inspection, and its
 annotator's parameter highlighting. `JavaCucumberExtension` therefore returns nothing from
-`loadStepsFor` and `getStepName`, which makes all three short-circuit, and this plugin supplies its
-own reference, undefined-step inspection, completion and parameter highlighting on top of the
-bucketed index. The extension stays registered for what else hangs off it — notably
-`isGherkin6Supported`, which is what allows `Rule:` to parse.
+`loadStepsFor` and `getStepName`, so all three short-circuit. The extension stays registered for
+what else hangs off it — notably `isGherkin6Supported`, which is what allows `Rule:` to parse.
+
+`FastCucumberStepReference` takes over, and it *extends* the Gherkin plugin's own
+`CucumberStepReference` rather than replacing it, registered at `HIGHER_PRIORITY` so it comes first
+among a step's references. Several parts of the Gherkin plugin — renaming a step, the
+scenario-to-outline intention, the annotator that colours step parameters — look up the first
+`CucumberStepReference` on the element and resolve through it. Being one keeps all of that working
+on the indexed lookup, instead of quietly breaking when the extension point stopped answering.
 
 ### What makes it faster
 
@@ -128,6 +133,8 @@ only for patterns carrying regex syntax a Cucumber expression could not contain 
 | `steps/StepSnippet.kt` | Step text → expression, method name and typed parameters |
 | `steps/JavaCucumberExtension.kt` | The `cucumberJvmExtensionPoint` registration |
 | `steps/JavaStepDefinitionCreator.kt` | Generates the step definition for the quick fix |
+| `reference/FastCucumberStepReference.kt` | Feature → Java resolution, extending the Gherkin plugin's reference |
+| `completion/StepCompletionContributor.kt` | Step completion from the indexed definitions |
 | `navigation/StepDefinitionLineMarkerProvider.kt` | Java → feature gutter marker |
 | `navigation/StepUsagesCodeVisionProvider.kt` | The `N Gherkin steps` hint above a definition |
 | `inspections/` | Unused step definition, ambiguous step |

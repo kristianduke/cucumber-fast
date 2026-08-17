@@ -40,9 +40,6 @@
         <completion.contributor
             language="Gherkin"
             implementationClass="dev.kristian.cucumberfast.completion.StepCompletionContributor"/>
-        <annotator
-            language="Gherkin"
-            implementationClass="dev.kristian.cucumberfast.annotator.StepParameterAnnotator"/>
         <lang.inspectionSuppressor
             language="Gherkin"
             implementationClass="dev.kristian.cucumberfast.inspections.GherkinInspectionSuppressor"/>

@@ -9,7 +9,7 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiFile
-import dev.kristian.cucumberfast.reference.FastCucumberStepReference
+import dev.kristian.cucumberfast.reference.fastStepReference
 import dev.kristian.cucumberfast.steps.JavaStepDefinitionCreator
 import dev.kristian.cucumberfast.steps.StepSearch
 import org.jetbrains.plugins.cucumber.psi.GherkinElementVisitor
@@ -31,8 +31,8 @@ class UndefinedStepInspection : LocalInspectionTool() {
                 if (step.parent !is GherkinStepsHolder) return
                 if (DumbService.isDumb(step.project)) return
 
-                val reference = step.references.filterIsInstance<FastCucumberStepReference>().firstOrNull() ?: return
-                if (reference.resolveToDefinitions().any { it.element != null }) return
+                val reference = step.fastStepReference() ?: return
+                if (reference.definitions().any { it.element != null }) return
 
                 val fixes = if (canCreateStepDefinition(step)) arrayOf<LocalQuickFix>(CreateStepDefinitionFix()) else emptyArray()
                 holder.registerProblem(step, reference.rangeInElement, "Undefined step", *fixes)

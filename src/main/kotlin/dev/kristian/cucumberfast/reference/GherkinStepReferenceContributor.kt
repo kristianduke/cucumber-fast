@@ -24,7 +24,14 @@ import org.jetbrains.plugins.cucumber.psi.GherkinTokenTypes
 class GherkinStepReferenceContributor : PsiReferenceContributor() {
 
     override fun registerReferenceProviders(registrar: PsiReferenceRegistrar) {
-        registrar.registerReferenceProvider(PlatformPatterns.psiElement(GherkinStep::class.java), Provider)
+        // Higher than default so this reference comes first: the Gherkin plugin's rename, its
+        // scenario-to-outline intention and its parameter highlighting all take the *first*
+        // CucumberStepReference on the step and resolve through it.
+        registrar.registerReferenceProvider(
+            PlatformPatterns.psiElement(GherkinStep::class.java),
+            Provider,
+            PsiReferenceRegistrar.HIGHER_PRIORITY,
+        )
     }
 
     private object Provider : PsiReferenceProvider() {

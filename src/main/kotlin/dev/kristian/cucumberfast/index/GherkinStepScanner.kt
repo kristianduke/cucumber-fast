@@ -20,8 +20,9 @@ object GherkinStepScanner {
     fun scan(text: CharSequence): List<GherkinStepEntry> {
         // An unrecognised `# language:` header must not silently index nothing.
         val declared = languageOf(text)
-        val language = if (stepKeywords(declared).isEmpty()) DEFAULT_LANGUAGE else declared
-        val keywords = stepKeywords(language).ifEmpty { ENGLISH_FALLBACK }
+        val declaredKeywords = stepKeywords(declared)
+        val language = if (declaredKeywords.isEmpty()) DEFAULT_LANGUAGE else declared
+        val keywords = declaredKeywords.ifEmpty { stepKeywords(DEFAULT_LANGUAGE).ifEmpty { ENGLISH_FALLBACK } }
 
         val result = ArrayList<GherkinStepEntry>()
         var lineStart = 0

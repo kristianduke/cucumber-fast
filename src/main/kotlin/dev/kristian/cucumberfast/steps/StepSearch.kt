@@ -23,6 +23,9 @@ object StepSearch {
     private val MODULE_DEFINITIONS =
         Key.create<com.intellij.psi.util.CachedValue<List<IndexedJavaStepDefinition>>>("cucumberfast.module.definitions")
 
+    private val PROJECT_FEATURE_STEPS =
+        Key.create<com.intellij.psi.util.CachedValue<FeatureSteps>>("cucumberfast.project.feature.steps")
+
     private val MODULE_BUCKETS =
         Key.create<com.intellij.psi.util.CachedValue<Map<String, List<IndexedJavaStepDefinition>>>>(
             "cucumberfast.module.buckets",
@@ -81,28 +84,62 @@ object StepSearch {
         }, false)
     }
 
-    /** The feature steps [pattern] defines, as (file, step) pairs — no Gherkin PSI is built. */
+    /**
+     * The feature steps [pattern] defines, as (file, step) pairs — no Gherkin PSI is built.
+     *
+     * Reads the cached bucket map rather than the index. Querying the index per call meant a
+     * round-trip per bucket, and for a pattern starting with a placeholder — which belongs to no
+     * bucket — a round-trip for *every* key in the index. The unused-step inspection, the code
+     * vision hint and the gutter marker all ask this question about every step definition method on
+     * every highlighting pass.
+     */
     fun featureStepsFor(project: Project, scope: GlobalSearchScope, pattern: StepPattern): List<Pair<VirtualFile, GherkinStepEntry>> {
         if (DumbService.isDumb(project)) return emptyList()
-        val index = FileBasedIndex.getInstance()
-        val keys = if (pattern.indexKey == StepPattern.ANY_KEY) {
-            // The pattern starts with a placeholder, so no bucket narrows it down.
-            index.getAllKeys(GherkinStepIndex.NAME, project)
+        val steps = featureSteps(project)
+        val candidates = if (pattern.indexKey == StepPattern.ANY_KEY) {
+            steps.all
         } else {
-            listOf(pattern.indexKey)
+            // A step appears once per bucket, so one bucket needs no de-duplication.
+            steps.byKey[pattern.indexKey] ?: return emptyList()
         }
 
-        val result = ArrayList<Pair<VirtualFile, GherkinStepEntry>>()
-        for (key in keys) {
-            index.processValues(GherkinStepIndex.NAME, key, null, { file, entries ->
-                for (entry in entries) {
-                    if (pattern.matches(entry.text)) result.add(file to entry)
-                }
-                true
-            }, scope)
+        var result: MutableList<Pair<VirtualFile, GherkinStepEntry>>? = null
+        for (candidate in candidates) {
+            if (!pattern.matches(candidate.second.text)) continue
+            if (!scope.contains(candidate.first)) continue
+            (result ?: ArrayList<Pair<VirtualFile, GherkinStepEntry>>(2).also { result = it }).add(candidate)
         }
-        return result.distinctBy { (file, entry) -> file to entry.offset }
+        return result ?: emptyList()
     }
+
+    /** Every Gherkin step in the project, by bucket and as one de-duplicated list. */
+    private class FeatureSteps(
+        val byKey: Map<String, List<Pair<VirtualFile, GherkinStepEntry>>>,
+        val all: List<Pair<VirtualFile, GherkinStepEntry>>,
+    )
+
+    private fun featureSteps(project: Project): FeatureSteps =
+        CachedValuesManager.getManager(project).getCachedValue(project, PROJECT_FEATURE_STEPS, {
+            val index = FileBasedIndex.getInstance()
+            val scope = GlobalSearchScope.allScope(project)
+            val byKey = HashMap<String, MutableList<Pair<VirtualFile, GherkinStepEntry>>>()
+            val all = ArrayList<Pair<VirtualFile, GherkinStepEntry>>()
+            val seen = HashSet<Pair<VirtualFile, Int>>()
+
+            for (key in index.getAllKeys(GherkinStepIndex.NAME, project)) {
+                index.processValues(GherkinStepIndex.NAME, key, null, { file, entries ->
+                    val bucket = byKey.getOrPut(key) { ArrayList() }
+                    for (entry in entries) {
+                        val occurrence = file to entry
+                        bucket.add(occurrence)
+                        // Each step is indexed under two keys; the flat list keeps one copy.
+                        if (seen.add(file to entry.offset)) all.add(occurrence)
+                    }
+                    true
+                }, scope)
+            }
+            CachedValueProvider.Result.create(FeatureSteps(byKey, all), gherkinIndexTracker(project))
+        }, false)
 
     /** Java files holding at least one step definition, for "create step definition" targets. */
     fun definitionContainers(module: Module): Collection<PsiFile> =
@@ -126,5 +163,9 @@ object StepSearch {
 
     private fun indexTracker(project: Project): ModificationTracker = ModificationTracker {
         FileBasedIndex.getInstance().getIndexModificationStamp(JavaStepDefinitionIndex.NAME, project)
+    }
+
+    private fun gherkinIndexTracker(project: Project): ModificationTracker = ModificationTracker {
+        FileBasedIndex.getInstance().getIndexModificationStamp(GherkinStepIndex.NAME, project)
     }
 }

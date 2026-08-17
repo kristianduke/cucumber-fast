@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [0.4.1]
+
+### Fixed
+
+- Renaming a step, the scenario-to-outline intention and step parameter highlighting stopped working
+  in 0.4.0. All three take the first `CucumberStepReference` on a step and resolve through it, and
+  moving resolution off the extension point left that one answering nothing. This plugin's reference
+  now *is* one, registered ahead of it.
+- A step definition whose pattern is a constant rather than a string literal — `@Given(STEP_TEXT)` —
+  was reported as unused. Its pattern cannot be read, so nothing can be said about it.
+
+### Changed
+
+- Looking up which feature steps a definition implements now reads a cached bucket map. It queried
+  the index once per bucket per call, and for a pattern starting with a placeholder, once per key in
+  the whole index — on every highlighting pass, for every step definition on screen.
+- Deciding whether a method is a step definition resolves its annotations once per method and shares
+  the answer with the usage count, rather than resolving every annotation on every method twice per
+  pass.
+
 ## [0.4.0]
 
 ### Changed
@@ -74,7 +94,8 @@
 - Navigation between Gherkin steps and Java step definitions in both directions, resolved through a
   file index bucketed by each pattern's literal prefix rather than by scanning every definition.
 
-[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/kristianduke/cucumber-fast/compare/v0.2.0...v0.2.1
