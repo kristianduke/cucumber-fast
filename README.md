@@ -23,6 +23,23 @@ Recognised: annotation and `io.cucumber.java8` lambda step definitions, localize
 (`io.cucumber.java.de.Angenommen`) and localized feature files (`# language: de`), and project
 `@ParameterType` declarations.
 
+### Parameter types
+
+All eleven of Cucumber's built-ins, each covered by a test that resolves a real step through it and
+one that checks it rejects what it should:
+
+| | |
+| --- | --- |
+| `{int}` `{byte}` `{short}` `{long}` `{biginteger}` | `-?\d+` — `42`, `-42`; not `forty` |
+| `{float}` `{double}` `{bigdecimal}` | `-?\d*[.,]?\d+` — `1.5`, `-1.5`, `1,5` |
+| `{word}` | a run without whitespace |
+| `{string}` | a quoted value, single or double, escapes included |
+| `{}` | anything |
+
+Optional text (`cuke(s)`) and alternation (`cat/dog`) work too, as does any `@ParameterType` the
+project declares. Custom types registered in code rather than by annotation — an older
+`TypeRegistryConfigurer` — are not visible to the index and fall back to matching anything.
+
 See [Not done yet](#not-done-yet) for what is missing — the biggest gap being that scenarios cannot
 be *run* from the gutter.
 
