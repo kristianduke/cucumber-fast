@@ -3,10 +3,74 @@
     <vendor>Kristian</vendor>
 
     <description><![CDATA[
-    Fast navigation between Gherkin feature files and their Java step definitions.<br/>
-    Step definitions are found through a file index keyed on the literal prefix of each pattern, so
-    resolving a step compares it against a handful of candidates instead of regex-testing every step
-    definition in the project, and does not touch PSI until a definition actually matches.
+    <p>
+      Navigation and inspections for Cucumber suites written in Java, resolved through a file index
+      instead of a scan of every step definition in the project.
+    </p>
+
+    <p><b>Navigation</b></p>
+    <ul>
+      <li><b>Step to definition</b> — Ctrl+click or Ctrl+B from any step in a feature file.</li>
+      <li><b>Definition to steps</b> — a gutter icon and a <code>3 Gherkin steps</code> hint
+        above each step definition. Both open the same list, where every row names the scenario and
+        the file and line it lives on, and moving over a row previews that whole scenario with the
+        step marked.</li>
+    </ul>
+
+    <p><b>Inspections</b></p>
+    <ul>
+      <li><b>Undefined step</b>, with a quick fix that writes the missing method — deriving
+        <code>{int}</code>, <code>{string}</code> and <code>{float}</code> parameters from the step
+        text and adding it to the class that already holds the most step definitions.</li>
+      <li><b>Unused step definition</b>: one no feature file uses. Dead weight that accumulates as
+        features are reworded, and that a passing test run never points out.</li>
+      <li><b>Ambiguous step</b>: one that two definitions match. Cucumber fails these at runtime with
+        <code>AmbiguousStepDefinitionsException</code>, while the IDE otherwise hides the problem by
+        quietly resolving to whichever pattern is longest.</li>
+    </ul>
+
+    <p><b>Editing</b></p>
+    <ul>
+      <li>Step completion inside feature files, offered from the project's own step definitions and
+        matched against the whole step text typed so far, not just the last word.</li>
+      <li>Parameter values highlighted inside each step.</li>
+      <li>Renaming a step rewrites the feature files and the step definition's pattern together.</li>
+    </ul>
+
+    <p><b>What it recognises</b></p>
+    <ul>
+      <li>Annotation step definitions and <code>io.cucumber.java8</code> lambda ones.</li>
+      <li>Localized annotations such as <code>io.cucumber.java.de.Angenommen</code>, and localized
+        feature files declaring <code># language: de</code>.</li>
+      <li>Every built-in parameter type — <code>{int}</code>, <code>{float}</code>,
+        <code>{word}</code>, <code>{string}</code>, <code>{byte}</code>, <code>{short}</code>,
+        <code>{long}</code>, <code>{double}</code>, <code>{biginteger}</code>,
+        <code>{bigdecimal}</code> and the anonymous <code>{}</code> — plus optional text
+        (<code>cuke(s)</code>), alternation (<code>cat/dog</code>), and any
+        <code>@ParameterType</code> the project declares.</li>
+    </ul>
+
+    <p><b>Why it stays quick</b></p>
+    <p>
+      Step definitions are found by a lexer pass over Java sources, with no parsing and no resolving,
+      and bucketed by the leading literal words of their pattern. Resolving a step then compares it
+      against the handful of definitions that could plausibly match, and touches PSI only once one
+      does. Over a synthetic suite of 3,000 step definitions that resolves around 14 times faster
+      than the equivalent linear pass, and it does not slow down as a suite grows.
+    </p>
+
+    <p><b>Requirements</b></p>
+    <p>
+      Needs the <a href="https://plugins.jetbrains.com/plugin/9164-gherkin">Gherkin</a> plugin, which
+      the IDE offers to install alongside this one. Running a scenario from the gutter is not
+      provided here yet; <b>Cucumber for Java</b> still covers that, and the two can be installed
+      together.
+    </p>
+
+    <p>
+      <em>Built with AI assistance. The repository documents what is covered by tests and what is
+      known to be missing.</em>
+    </p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>

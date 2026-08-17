@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.4.3]
+
+### Changed
+
+- The plugin description now lists what the plugin actually does — navigation, the three
+  inspections, completion, parameter highlighting, what it recognises, and what it does not cover —
+  instead of two sentences about indexing.
+
+### Added
+
+- A test for every one of Cucumber's built-in parameter types: each resolves a real step, and each
+  is checked to reject a value it should not match.
+
 ## [0.4.2]
 
 ### Fixed
@@ -119,7 +132,8 @@
 - Navigation between Gherkin steps and Java step definitions in both directions, resolved through a
   file index bucketed by each pattern's literal prefix rather than by scanning every definition.
 
-[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.3.0...v0.4.0
