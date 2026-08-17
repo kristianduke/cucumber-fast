@@ -1,3 +1,4 @@
+import org.jetbrains.changelog.Changelog
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -7,6 +8,7 @@ plugins {
     id("java")
     alias(libs.plugins.kotlin)
     alias(libs.plugins.intelliJPlatform)
+    alias(libs.plugins.changelog)
 }
 
 group = providers.gradleProperty("pluginGroup").get()
@@ -14,6 +16,30 @@ version = providers.gradleProperty("pluginVersion").get()
 
 /** Stand-in host, so a forgotten `-PpluginRepositoryUrl` produces an obviously wrong URL, not a plausible one. */
 val PLACEHOLDER_REPOSITORY_URL = "https://REPLACE-WITH-YOUR-HOST.invalid/idea-plugins"
+
+changelog {
+    version = providers.gradleProperty("pluginVersion")
+    // Matches the `## [x.y.z]` headings in CHANGELOG.md.
+    header = provider { "[${version.get()}]" }
+    repositoryUrl = "https://github.com/kristianduke/cucumber-fast"
+}
+
+/**
+ * This version's entry from CHANGELOG.md, as HTML. It goes to two places: the plugin descriptor,
+ * where the IDE shows it under "What's New" once installed, and `updatePlugins.xml`, where the IDE
+ * shows it in the update prompt *before* installing.
+ *
+ * Read here, at configuration time, and passed around as a plain string: a provider that reaches
+ * into the `changelog` extension holds a reference to this script, which the configuration cache
+ * cannot serialize into a task.
+ */
+val changeNotesHtml: String = with(changelog) {
+    val pluginVersion = providers.gradleProperty("pluginVersion").get()
+    renderItem(
+        (getOrNull(pluginVersion) ?: getUnreleased()).withHeader(false).withEmptySections(false),
+        Changelog.OutputType.HTML,
+    )
+}
 
 repositories {
     mavenCentral()
@@ -65,6 +91,7 @@ intellijPlatform {
         id = "dev.kristian.cucumberfast"
         name = providers.gradleProperty("pluginName")
         version = providers.gradleProperty("pluginVersion")
+        changeNotes = changeNotesHtml
 
         ideaVersion {
             sinceBuild = "251"
@@ -109,6 +136,7 @@ val generateUpdatePlugins by tasks.registering {
     val pluginId = providers.gradleProperty("pluginGroup").map { "$it.cucumberfast" }
     val pluginName = providers.gradleProperty("pluginName")
     val pluginVersion = providers.gradleProperty("pluginVersion")
+    val changeNotes = changeNotesHtml
     val output = layout.buildDirectory.file("distributions/updatePlugins.xml")
 
     inputs.property("downloadUrl", downloadUrlOverride.orElse(repositoryUrl))
@@ -118,8 +146,10 @@ val generateUpdatePlugins by tasks.registering {
     doLast {
         val downloadUrl = downloadUrlOverride.orNull
             ?: repositoryUrl.get().trimEnd('/') + '/' + archiveFileName.get()
-        output.get().asFile.writeText(
-            """
+        // The change notes are multi-line, and interpolating them before trimIndent() would leave
+        // their unindented lines as the common prefix — so nothing gets trimmed and the document
+        // starts with whitespace, which is not a well-formed XML declaration. Substitute after.
+        val xml = """
             <?xml version="1.0" encoding="UTF-8"?>
             <plugins>
               <plugin id="${pluginId.get()}" url="$downloadUrl" version="${pluginVersion.get()}">
@@ -127,11 +157,12 @@ val generateUpdatePlugins by tasks.registering {
                 <vendor>Kristian</vendor>
                 <idea-version since-build="251"/>
                 <description><![CDATA[Fast navigation between Gherkin feature files and their Java step definitions.]]></description>
+                <change-notes><![CDATA[@CHANGE_NOTES@]]></change-notes>
               </plugin>
             </plugins>
 
-            """.trimIndent(),
-        )
+        """.trimIndent().replace("@CHANGE_NOTES@", changeNotes)
+        output.get().asFile.writeText(xml)
         if (downloadUrlOverride.orNull == null && repositoryUrl.get() == placeholderUrl) {
             logger.warn(
                 "updatePlugins.xml was written with a placeholder host. Rebuild with " +

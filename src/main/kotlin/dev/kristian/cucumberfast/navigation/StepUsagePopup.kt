@@ -71,14 +71,20 @@ object StepUsagePopup {
     /** Two lines per row: the step itself, then the feature and scenario it sits in. */
     private class StepUsageRenderer : ListCellRenderer<StepUsageItem> {
 
-        private val stepLabel = JBLabel().apply { icon = CucumberIcons.Cucumber }
+        private val stepLabel = JBLabel().apply {
+            icon = CucumberIcons.Cucumber
+            // BoxLayout centres children whose alignmentX differs, which would stagger the two rows.
+            alignmentX = Component.LEFT_ALIGNMENT
+        }
         private val contextLabel = JBLabel().apply {
             font = JBUI.Fonts.smallFont()
             border = JBUI.Borders.emptyLeft(20)
+            alignmentX = Component.LEFT_ALIGNMENT
         }
         private val panel = JBPanel<JBPanel<*>>().apply {
             layout = BoxLayout(this, BoxLayout.Y_AXIS)
             border = JBUI.Borders.empty(4, 8)
+            isOpaque = true
             add(stepLabel)
             add(contextLabel)
         }

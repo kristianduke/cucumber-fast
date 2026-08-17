@@ -6,7 +6,6 @@ import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.util.PsiTreeUtil
 import dev.kristian.cucumberfast.steps.StepUsages
-import org.jetbrains.plugins.cucumber.psi.GherkinFeature
 import org.jetbrains.plugins.cucumber.psi.GherkinStep
 import org.jetbrains.plugins.cucumber.psi.GherkinStepsHolder
 
@@ -22,7 +21,10 @@ class StepUsageItem private constructor(
     private val pointer: SmartPsiElementPointer<GherkinStep>,
     /** `Given I have 42 cukes` — the keyword and text as written. */
     val stepText: String,
-    /** `Cukes › Eating cukes` — the feature and scenario the step belongs to. */
+    /**
+     * `Eating cukes` — the scenario the step belongs to. The feature is deliberately left out: it
+     * is the same for every row from one file and only widens the popup.
+     */
     val container: String,
     /** `shopping.feature:12` */
     val location: String,
@@ -52,7 +54,6 @@ class StepUsageItem private constructor(
             val stepLine = StringUtil.offsetToLineNumber(fileText, step.textOffset)
 
             val scenario = PsiTreeUtil.getParentOfType(step, GherkinStepsHolder::class.java)
-            val feature = PsiTreeUtil.getParentOfType(step, GherkinFeature::class.java)
 
             val firstLine = scenario?.let { StringUtil.offsetToLineNumber(fileText, it.textRange.startOffset) } ?: stepLine
             val lastLine = scenario?.let { StringUtil.offsetToLineNumber(fileText, it.textRange.endOffset) } ?: stepLine
@@ -60,7 +61,7 @@ class StepUsageItem private constructor(
             return StepUsageItem(
                 pointer = SmartPointerManager.getInstance(step.project).createSmartPsiElementPointer(step),
                 stepText = step.text.lineSequence().first().trim(),
-                container = containerText(feature, scenario),
+                container = scenarioText(scenario),
                 location = "${file.name}:${stepLine + 1}",
                 scenarioLines = previewLines(fileText, firstLine, lastLine),
                 stepLineIndex = stepLine - firstLine,
@@ -82,12 +83,7 @@ class StepUsageItem private constructor(
             return if (dedented.size > MAX_PREVIEW_LINES) dedented.take(MAX_PREVIEW_LINES) + "…" else dedented
         }
 
-        private fun containerText(feature: GherkinFeature?, scenario: GherkinStepsHolder?): String {
-            val featureName = feature?.featureName?.trim().orEmpty()
-            val scenarioName = scenario?.scenarioName?.trim()
-                ?.ifEmpty { scenario.scenarioKeyword?.trim() }
-                .orEmpty()
-            return listOf(featureName, scenarioName).filter { it.isNotEmpty() }.joinToString(" › ")
-        }
+        private fun scenarioText(scenario: GherkinStepsHolder?): String =
+            scenario?.scenarioName?.trim()?.ifEmpty { scenario.scenarioKeyword?.trim() }.orEmpty()
     }
 }

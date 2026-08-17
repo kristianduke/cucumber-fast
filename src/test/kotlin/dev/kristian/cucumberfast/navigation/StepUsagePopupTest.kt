@@ -38,13 +38,13 @@ class StepUsagePopupTest : BasePlatformTestCase() {
         return StepUsageItem.create(project, StepUsages.of(method))
     }
 
-    fun testEachRowNamesItsFeatureAndScenario() {
+    fun testEachRowNamesItsScenarioWithoutTheFeature() {
         val items = items().sortedBy { it.container }
         assertEquals(2, items.size)
 
         assertEquals("Given I have 42 cukes", items[0].stepText)
-        assertEquals("Cukes › Eating cukes", items[0].container)
-        assertEquals("Cukes › Sharing cukes", items[1].container)
+        assertEquals("Eating cukes", items[0].container)
+        assertEquals("Sharing cukes", items[1].container)
     }
 
     fun testEachRowNamesItsFileAndLine() {
@@ -55,7 +55,7 @@ class StepUsagePopupTest : BasePlatformTestCase() {
     }
 
     fun testPreviewShowsTheWholeScenarioAndPointsAtTheStep() {
-        val item = items().first { it.container.endsWith("Sharing cukes") }
+        val item = items().first { it.container == "Sharing cukes" }
 
         // Dedented as a block, so the scenario keeps its shape without hanging off to the right.
         assertEquals(

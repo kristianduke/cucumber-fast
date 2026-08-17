@@ -13,6 +13,7 @@ gherkin = "251.23774.318"
 
 # Build tooling
 intellijPlatform = "2.18.1"
+changelog = "2.5.0"
 
 # Test
 junit = "4.13.2"
@@ -25,3 +26,4 @@ opentest4j = { group = "org.opentest4j", name = "opentest4j", version.ref = "ope
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 intelliJPlatform = { id = "org.jetbrains.intellij.platform", version.ref = "intellijPlatform" }
+changelog = { id = "org.jetbrains.changelog", version.ref = "changelog" }
