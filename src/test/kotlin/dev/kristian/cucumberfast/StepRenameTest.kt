@@ -1,6 +1,7 @@
 package dev.kristian.cucumberfast
 
 import com.intellij.psi.PsiFile
+import dev.kristian.cucumberfast.inspections.UndefinedStepInspection
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.refactoring.rename.RenameProcessor
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -184,6 +185,15 @@ class StepRenameTest : BasePlatformTestCase() {
         assertFalse(
             "the outline step was not expected to be reworded, got:\n$featureText",
             featureText.contains("pineapples"),
+        )
+
+        // The saving grace: the step left behind no longer matches anything, and says so straight
+        // away rather than failing later in a test run.
+        myFixture.enableInspections(UndefinedStepInspection())
+        val reported = myFixture.doHighlighting().mapNotNull { it.description }
+        assertTrue(
+            "the step left behind should be reported as undefined, got: $reported",
+            reported.any { it.contains("Undefined step") },
         )
     }
 
