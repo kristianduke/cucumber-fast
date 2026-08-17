@@ -1,3 +1,5 @@
+# AI Generated - Not Fully Tested.
+
 # Cucumber Fast
 
 An IntelliJ IDEA plugin that links Gherkin feature files to Java step definitions and back — the
