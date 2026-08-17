@@ -284,6 +284,12 @@ doing it.
   Cucumber expression comes back as the equivalent regex. Cucumber for Java behaves the same way.
   Rename also does not warn about a collision with another definition; the *Ambiguous Cucumber step*
   inspection reports it straight afterwards.
+- **Rename skips Scenario Outline steps.** Values are recovered by matching each usage against the
+  old pattern, and `<count>` never matches `(-?\d+)`, so those steps keep their old wording while the
+  step definition and every ordinary step are rewritten — leaving the definition matching only some
+  of its usages. Ordinary parameters are fine: `{int}` values keep their order and `{string}` keeps
+  its quotes. Fixing the outline case means taking over the rename processor and matching against the
+  substituted step text.
 - **Step completion is a flat list.** Every definition in the module is offered, filtered by the
   step text typed so far. The Gherkin plugin's own completion additionally understood table rows and
   inserted parameter placeholders; that is not reproduced yet.

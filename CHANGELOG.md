@@ -20,6 +20,12 @@
   Java does as well.
 - Renaming does not warn when the new wording collides with another step definition. The
   *Ambiguous Cucumber step* inspection reports it immediately afterwards.
+- Parameter values survive a rename: `I move 42 cukes from bin 7` keeps both numbers in order, and a
+  quoted `{string}` value keeps its quotes. Steps inside a **Scenario Outline** are the exception —
+  `<count>` cannot match the old pattern, so the IDE's rename skips those steps while rewriting the
+  step definition and every ordinary step. A definition used by both is left matching only some of
+  them. This is the Gherkin plugin's own behaviour, and stock Cucumber for Java shares it; a test
+  pins it so it cannot change unnoticed.
 
 ## [0.4.1]
 

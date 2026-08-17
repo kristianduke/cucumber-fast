@@ -62,6 +62,131 @@ class StepRenameTest : BasePlatformTestCase() {
         )
     }
 
+    /** The values captured by `{int}` must survive; only the words around them change. */
+    fun testRenameKeepsEveryParameterValue() {
+        val definitions = myFixture.addFileToProject(
+            "CukeSteps.java",
+            """
+            import io.cucumber.java.en.Given;
+
+            public class CukeSteps {
+                @Given("I move {int} cukes from bin {int}")
+                public void iMove(int count, int bin) {}
+            }
+            """.trimIndent(),
+        )
+        myFixture.configureByText(
+            "test.feature",
+            """
+            Feature: Cukes
+              Scenario: Moving
+                Given I move 42 cu<caret>kes from bin 7
+            """.trimIndent(),
+        )
+
+        RenameProcessor(project, stepAtCaret(), """I relocate (-?\d+) cukes from crate (-?\d+)""", false, false).run()
+
+        assertTrue(
+            "both values should survive the rename, got:\n${myFixture.file.text}",
+            myFixture.file.text.contains("Given I relocate 42 cukes from crate 7"),
+        )
+        assertTrue(
+            "the definition should carry the new pattern, got:\n${definitions.text}",
+            definitions.text.contains("I relocate"),
+        )
+    }
+
+    /** `{string}` captures the quotes as well, so the quoted value has to come back intact. */
+    fun testRenameKeepsQuotedStringParameters() {
+        myFixture.addFileToProject(
+            "CukeSteps.java",
+            """
+            import io.cucumber.java.en.Given;
+
+            public class CukeSteps {
+                @Given("the user {string} logs in")
+                public void theUserLogsIn(String name) {}
+            }
+            """.trimIndent(),
+        )
+        myFixture.configureByText(
+            "test.feature",
+            """
+            Feature: Login
+              Scenario: Signing in
+                Given the user "bob" lo<caret>gs in
+            """.trimIndent(),
+        )
+
+        val definition = org.jetbrains.plugins.cucumber.CucumberUtil
+            .getCucumberStepReference(stepAtCaret())!!
+            .resolveToDefinition()!!
+        // Whatever the rename does, it starts from this regex — so it has to describe the quotes.
+        val regex = definition.cucumberRegex!!
+        assertTrue("expected {string} to become a capturing group, got: $regex", regex.contains("("))
+
+        RenameProcessor(project, stepAtCaret(), regex.removePrefix("^").removeSuffix("$")
+            .replace(" logs in", " signs in"), false, false).run()
+
+        assertTrue(
+            "the quoted value should survive, got:\n${myFixture.file.text}",
+            myFixture.file.text.contains("""Given the user "bob" signs in"""),
+        )
+    }
+
+    /**
+     * Known limitation, pinned so it cannot change unnoticed.
+     *
+     * A Scenario Outline step holds `<count>` where a value would go, and the IDE's rename matches
+     * each usage against the *old* pattern to recover its values —
+     * `CucumberStepRenameProcessor.getNewStepName` returns the step unchanged when that match fails.
+     * `<count>` never matches `(-?\d+)`, so outline steps are skipped while ordinary steps and the
+     * step definition are rewritten. A definition used by both ends up matching only some of them.
+     *
+     * This is the Gherkin plugin's own logic and stock Cucumber for Java behaves the same way.
+     * Fixing it means taking over the rename processor and matching against the substituted step
+     * text instead.
+     */
+    fun testScenarioOutlineStepsAreLeftBehindByRename() {
+        myFixture.addFileToProject(
+            "CukeSteps.java",
+            """
+            import io.cucumber.java.en.Given;
+
+            public class CukeSteps {
+                @Given("I have {int} cukes")
+                public void iHaveCukes(int count) {}
+            }
+            """.trimIndent(),
+        )
+        myFixture.configureByText(
+            "test.feature",
+            """
+            Feature: Cukes
+              Scenario Outline: Eating
+                Given I have <count> cu<caret>kes
+
+                Examples:
+                  | count |
+                  | 42    |
+                  | 7     |
+            """.trimIndent(),
+        )
+
+        RenameProcessor(project, stepAtCaret(), """I have (-?\d+) pineapples""", false, false).run()
+
+        val featureText = myFixture.file.text
+        assertTrue(
+            "outline steps are skipped by rename; if this now passes, the limitation is fixed and " +
+                "the documentation should say so. Got:\n$featureText",
+            featureText.contains("Given I have <count> cukes"),
+        )
+        assertFalse(
+            "the outline step was not expected to be reworded, got:\n$featureText",
+            featureText.contains("pineapples"),
+        )
+    }
+
     fun testTheRenamedStepStillResolves() {
         stepDefinitions()
         myFixture.configureByText(
