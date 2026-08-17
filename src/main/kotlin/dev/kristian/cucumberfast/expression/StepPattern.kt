@@ -36,6 +36,15 @@ class StepPattern private constructor(
     val literalPrefix: String,
     /** Names inside `{…}`, empty for a regular expression. */
     val parameterTypeNames: List<String>,
+    /**
+     * The pattern *as a regular expression* — `I have {int} cukes` becomes `^I have (-?\d+) cukes$`.
+     *
+     * This is what `AbstractStepDefinition.getCucumberRegex` is expected to return, and several
+     * parts of the Gherkin plugin compile it: the annotator that colours step parameters reads the
+     * capture groups out of it, and renaming a step lexes it as a regex. Handing them a raw
+     * Cucumber expression makes `{int}` look like a quantifier and throws.
+     */
+    val regexText: String,
     private val regex: Pattern?,
 ) {
 
@@ -65,8 +74,11 @@ class StepPattern private constructor(
      * The same pattern with project-defined `@ParameterType` declarations resolved. Classification,
      * prefix and bucket are unchanged by construction — only the regex differs.
      */
-    fun withParameterTypes(parameterTypes: ParameterTypeManager): StepPattern =
-        if (isRegex) this else StepPattern(source, isRegex, anchored, literalPrefix, parameterTypeNames, buildRegex(source, parameterTypes))
+    fun withParameterTypes(parameterTypes: ParameterTypeManager): StepPattern {
+        if (isRegex) return this
+        val regexText = normalizeAnchors(CucumberUtil.buildRegexpFromCucumberExpression(source, parameterTypes))
+        return StepPattern(source, isRegex, anchored, literalPrefix, parameterTypeNames, regexText, compileRegex(regexText))
+    }
 
     override fun toString(): String = source
 
@@ -115,14 +127,17 @@ class StepPattern private constructor(
             // A Cucumber expression always matches the whole step; a regex only anchors if it says so.
             val anchored = if (isRegex) source.startsWith("^") || source.startsWith("\\A") else true
             val prefix = if (isRegex) regexLiteralPrefix(source) else expressionLiteralPrefix(source)
-            val regex = if (isRegex) compileRegex(source) else buildRegex(source, StandardParameterTypes)
+            val regexText = normalizeAnchors(
+                if (isRegex) source else CucumberUtil.buildRegexpFromCucumberExpression(source, StandardParameterTypes),
+            )
             return StepPattern(
                 source = source,
                 isRegex = isRegex,
                 anchored = anchored,
                 literalPrefix = prefix.lowercase(),
                 parameterTypeNames = if (isRegex) emptyList() else parameterTypeNames,
-                regex = regex,
+                regexText = regexText,
+                regex = compileRegex(regexText),
             )
         }
 
@@ -153,11 +168,8 @@ class StepPattern private constructor(
             return names
         }
 
-        private fun buildRegex(source: String, parameterTypes: ParameterTypeManager): Pattern? =
-            compileRegex(CucumberUtil.buildRegexpFromCucumberExpression(source, parameterTypes))
-
         private fun compileRegex(regexText: String): Pattern? = try {
-            Pattern.compile(normalizeAnchors(regexText))
+            Pattern.compile(regexText)
         } catch (_: PatternSyntaxException) {
             null
         }

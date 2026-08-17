@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [0.4.2]
+
+### Fixed
+
+- Renaming a step left the step definition's pattern untouched, silently undefining every step it
+  had just reworded. The definition now rewrites its own annotation, as Cucumber for Java does.
+- `getCucumberRegex` returned the pattern as written rather than as a regular expression, which is
+  what the contract means. For a Cucumber expression that made `{int}` read as a quantifier: renaming
+  a step threw `PatternSyntaxException`, and step parameter highlighting silently produced nothing.
+
+### Known behaviour
+
+- Renaming a step definition written as a Cucumber expression converts it to the equivalent regex
+  (`I have {int} cukes` becomes `^I have (-?\d+) cukes$`). The rename flow is regex-shaped — the
+  dialog shows the pattern as a regex and locks its special symbols — and this is what Cucumber for
+  Java does as well.
+- Renaming does not warn when the new wording collides with another step definition. The
+  *Ambiguous Cucumber step* inspection reports it immediately afterwards.
+
 ## [0.4.1]
 
 ### Fixed
@@ -94,7 +113,8 @@
 - Navigation between Gherkin steps and Java step definitions in both directions, resolved through a
   file index bucketed by each pattern's literal prefix rather than by scanning every definition.
 
-[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.2.1...v0.3.0

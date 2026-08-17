@@ -279,6 +279,11 @@ doing it.
 - **Unknown parameter types match permissively.** A `{colour}` with no `@ParameterType` anywhere
   becomes `(.*)` so navigation still works. Cucumber would refuse the step outright, so the IDE is
   more forgiving here than the runtime.
+- **Renaming a step rewrites the pattern as a regex.** The rename dialog shows the step definition's
+  pattern as a regular expression and locks its special symbols, so a definition written as a
+  Cucumber expression comes back as the equivalent regex. Cucumber for Java behaves the same way.
+  Rename also does not warn about a collision with another definition; the *Ambiguous Cucumber step*
+  inspection reports it straight afterwards.
 - **Step completion is a flat list.** Every definition in the module is offered, filtered by the
   step text typed so far. The Gherkin plugin's own completion additionally understood table rows and
   inserted parameter placeholders; that is not reproduced yet.

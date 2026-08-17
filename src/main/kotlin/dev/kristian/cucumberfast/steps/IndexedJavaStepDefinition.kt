@@ -1,9 +1,12 @@
 package dev.kristian.cucumberfast.steps
 
+import com.intellij.openapi.util.text.StringUtil
+import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiAnnotation
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiLiteralExpression
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.SmartPointerManager
@@ -44,11 +47,52 @@ class IndexedJavaStepDefinition(
 
     override fun matches(stepName: String): Boolean = pattern.matches(stepName)
 
+    /** The pattern as written — a Cucumber expression stays one, for display and completion. */
     override fun getExpression(): String = entry.expression
 
-    override fun getCucumberRegex(): String = entry.expression
+    /**
+     * The pattern as a *regular expression*, which is what this contract means: the Gherkin
+     * plugin compiles it to colour step parameters and lexes it when renaming a step. Returning the
+     * raw Cucumber expression makes `{int}` read as a quantifier and throws.
+     */
+    override fun getCucumberRegex(): String = pattern.regexText
 
-    override fun getCucumberRegexFromElement(element: PsiElement?): String = entry.expression
+    override fun getCucumberRegexFromElement(element: PsiElement?): String = pattern.regexText
+
+    /**
+     * Rewrites the pattern in the source, which is how renaming a step updates the step definition
+     * it belongs to. Without this the rename would change every feature file and leave the
+     * annotation behind, quietly undefining each step it just renamed.
+     */
+    override fun setCucumberRegex(newValue: String) {
+        val literal = patternLiteral() ?: return
+        // Written through verbatim. Renaming a step is a regex-shaped operation in this IDE — the
+        // dialog shows the pattern as a regex and locks its special symbols — so a definition
+        // originally written as a Cucumber expression comes back as the equivalent regex. That is
+        // what Cucumber for Java does too, and rewriting it back into expression form would have to
+        // guess which captures were once `{int}`.
+        val factory = JavaPsiFacade.getElementFactory(containingFile.project)
+        val replacement = factory.createExpressionFromText(
+            "\"" + StringUtil.escapeStringCharacters(newValue) + "\"",
+            literal,
+        )
+        literal.replace(replacement)
+    }
+
+    /** The string literal holding the pattern, for both annotation and lambda step definitions. */
+    private fun patternLiteral(): PsiLiteralExpression? {
+        if (!containingFile.isValid || entry.offset >= containingFile.textLength) return null
+        val leaf = containingFile.findElementAt(entry.offset) ?: return null
+        return when (entry.kind) {
+            StepDefinitionKind.ANNOTATION ->
+                PsiTreeUtil.getParentOfType(leaf, PsiAnnotation::class.java)
+                    ?.findAttributeValue("value") as? PsiLiteralExpression
+
+            StepDefinitionKind.LAMBDA ->
+                PsiTreeUtil.getParentOfType(leaf, PsiMethodCallExpression::class.java)
+                    ?.argumentList?.expressions?.firstOrNull() as? PsiLiteralExpression
+        }
+    }
 
     override fun getVariableNames(): List<String> =
         (getElement() as? PsiMethod)?.parameterList?.parameters?.map { it.name } ?: emptyList()
