@@ -36,7 +36,14 @@ jobs:
 
       - uses: gradle/actions/wrapper-validation@v6
 
+      # No Gradle cache here, unlike the build workflow. The cache holds the *extracted* IntelliJ
+      # Platform as an artifact-transform output, and restoring a partially written entry — which
+      # happens when a push and its tag start jobs seconds apart — yields a platform missing
+      # `plugins/java`, failing the build with "Could not find bundled plugin com.intellij.java".
+      # Releases are rare; paying the download buys a guaranteed-clean extraction.
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-disabled: true
 
       # A tag push carries the version in the ref; a manual run carries it as an input.
       - name: Resolve version
