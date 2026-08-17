@@ -56,11 +56,23 @@ jobs:
 
       # The download URL has to be baked into updatePlugins.xml, and it points at an asset of the
       # release this run is about to create.
+      #
+      # Retried once because extracting the IntelliJ Platform is flaky: it intermittently fails with
+      # ClosedFileSystemException, surfacing as "Could not find bundled plugin with ID:
+      # com.intellij.java" on code that built fine moments earlier. It has failed both with the
+      # Gradle cache on and off, so it is a race in the artifact transform rather than a cache
+      # problem. A second attempt reuses the extraction the first one left behind and succeeds.
       - name: Build plugin
-        run: >
-          ./gradlew build buildPlugin
-          -PpluginVersion=$VERSION
-          -PpluginDownloadUrl=${{ github.server_url }}/${{ github.repository }}/releases/download/$TAG/$ARCHIVE
+        run: |
+          build() {
+            ./gradlew build buildPlugin \
+              -PpluginVersion="$VERSION" \
+              -PpluginDownloadUrl="${{ github.server_url }}/${{ github.repository }}/releases/download/$TAG/$ARCHIVE"
+          }
+          build || {
+            echo "::warning::Platform extraction failed; retrying once."
+            build
+          }
 
       - name: Verify the archive was named as expected
         run: test -f "build/distributions/$ARCHIVE"
