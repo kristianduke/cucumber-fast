@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Added
+
+- **Breakpoints in feature files.** Click the gutter beside a step and the debugger stops at the top
+  of its step definition, before the step does anything. A `.feature` line has no bytecode, so the
+  breakpoint is translated: the step is resolved through the same indexed lookup Ctrl+B uses, and
+  the request goes on the first executable line of the method behind it. IntelliJ has never offered
+  this — [IDEA-98387](https://youtrack.jetbrains.com/issue/IDEA-98387) has been open since 2012 —
+  and Cucumber for Java does not provide it either.
+
+  It stops only while *that* step is running. A step definition is normally shared by several steps,
+  and a plain JVM breakpoint would stop on all of them; this one reads the feature URI and line out
+  of Cucumber's `PickleStepDefinitionMatch` frame and resumes silently when they do not match the
+  step the breakpoint was put on.
+
+  Nothing about it is tied to how the run was started, so it works under JUnit, Gradle, Maven and
+  remote attach alike. Conditions, filters, suspend policies and log expressions are Java's own.
+
+### Known behaviour
+
+- The pause lands in the Java step definition, not in the feature file: there is no position mapping
+  back the other way, so stepping from there moves through Java and the feature file is not what the
+  debugger highlights. Breakpoints go on steps only, not on `Scenario:`, `Background:` or hook lines,
+  and not on a table row belonging to a step.
+- Identifying the running step reads Cucumber's internals. A Cucumber that does not present that
+  frame — an old enough 4.x, or a wrapper that hides it — falls back to stopping for every step
+  sharing the definition, which is what a hand-placed Java breakpoint would have done. That half is
+  not covered by tests; it needs a live debug session against a real Cucumber run.
+- A breakpoint on an ambiguous step installs itself on the first matching definition.
+
 ## [0.4.3]
 
 ### Changed
@@ -132,7 +163,8 @@
 - Navigation between Gherkin steps and Java step definitions in both directions, resolved through a
   file index bucketed by each pattern's literal prefix rather than by scanning every definition.
 
-[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.0...v0.4.1

@@ -15,6 +15,7 @@ job "Cucumber for Java" does, with resolution built on a file index instead of a
 | --- | --- |
 | **Feature → Java** | Ctrl+B / Ctrl+click from a step to its definition. The Gherkin plugin's undefined-step inspection, step completion and rename resolve through the same path. |
 | **Java → feature** | Gutter icon and a code vision hint (`3 Gherkin steps`) above each step definition. Both open the same popup, where every row names the feature and scenario the step belongs to, and moving over a row previews that whole scenario with the step marked. |
+| **Breakpoints in feature files** | Click the gutter beside a step. The debugger stops at the top of its step definition, before the step does anything — and only while *that* step is running, not for every other step sharing the definition. |
 | **Unused step definitions** | Weak warning on a definition no feature file uses — dead code a test run never points out. |
 | **Ambiguous steps** | Warning on a step two definitions match, which Cucumber fails at runtime and the IDE otherwise hides. |
 | **Create step definition** | The quick fix on an undefined step writes the method, with `{int}`/`{string}`/`{float}` parameters derived from the step text. |
@@ -132,6 +133,43 @@ an expression, so a plain-text pattern (`there are no cukes left`) is treated as
 only for patterns carrying regex syntax a Cucumber expression could not contain (`\`, `[`, `.*`,
 `.+`), so hand-written unanchored regexes keep working.
 
+### Breakpoints on steps
+
+A `.feature` line has no bytecode, so a breakpoint on one cannot be a breakpoint on that line. It is
+translated instead: the step is resolved to its step definition — the same indexed lookup Ctrl+B
+uses — and the JDI request goes on the first executable line of that method. The pause therefore
+lands inside the Java step definition, at the top, before the step does its work. JetBrains has had
+this open as [IDEA-98387](https://youtrack.jetbrains.com/issue/IDEA-98387) since 2012; Cucumber for
+Java does not provide it.
+
+Three pieces, all standard extension points:
+
+- `GherkinStepBreakpointType` extends the platform's `JavaLineBreakpointTypeBase`, which is what
+  makes the JVM debugger willing to carry a breakpoint owned by another language. Java's condition
+  editor, filters panel and suspend policies come with it. It offers itself only on a line that
+  *starts* a step, so a table row or doc string under one is not breakpointable.
+- `GherkinStepBreakpointHandlerFactory` registers at `debugger.javaBreakpointHandlerFactory`, the
+  extension point every Java debug process asks for extra breakpoint handlers. That is why these
+  breakpoints need no run configuration from this plugin and work under any JVM debug session —
+  JUnit, Gradle, Maven or a remote attach.
+- `GherkinStepBreakpoint` extends `LineBreakpoint` and answers `getSourcePosition()` with the Java
+  position rather than the feature line the gutter icon sits on. Everything downstream — the
+  class-prepare request, the search for locations, lambda bodies, conditions — is the platform's
+  own, unchanged.
+
+Two things are added on top of that. Locations are accepted only in the method actually holding the
+definition: a one-line lambda step definition shares its line with the call that registers it, so
+without the filter the breakpoint would also stop while the glue is being loaded. And the breakpoint
+checks *which* step is running before it suspends — a step definition is normally shared, and the
+JVM breakpoint alone would stop on every step using it.
+
+That check reads the frame that invokes the definition, `PickleStepDefinitionMatch`, which holds the
+feature file's URI and the step. The URI is matched by suffix, since Cucumber reports
+`classpath:features/eat.feature` or an absolute `file:` URI depending on how the run was pointed at
+the features. It is deliberately coupled to Cucumber's internals and deliberately fails *open*: a
+Cucumber arranged differently enough that the frame is not recognised leaves the breakpoint behaving
+like an ordinary one on the step definition, which is the behaviour it replaces.
+
 ### Source map
 
 | Path | What it does |
@@ -155,6 +193,10 @@ only for patterns carrying regex syntax a Cucumber expression could not contain 
 | `navigation/StepDefinitionLineMarkerProvider.kt` | Java → feature gutter marker |
 | `navigation/StepUsagesCodeVisionProvider.kt` | The `N Gherkin steps` hint above a definition |
 | `inspections/` | Unused step definition, ambiguous step |
+| `debugger/GherkinStepBreakpointType.kt` | The breakpoint type offered on feature-file steps |
+| `debugger/GherkinStepBreakpoint.kt` | The Java breakpoint it becomes, installed on the step definition |
+| `debugger/GherkinStepTarget.kt` | Step → the Java line the request goes on, and how to identify the step at runtime |
+| `debugger/RunningStep.kt` | Reads which step Cucumber is running out of the debuggee's stack |
 
 ### Where the parameter types fit
 
@@ -285,6 +327,18 @@ doing it.
   Until this plugin supplies them, running a single scenario from the editor still needs that plugin
   installed. This is the largest remaining gap and the one that decides whether this is a
   replacement or only a navigation plugin.
+- **Breakpoints stop in Java, not in the feature file.** A breakpoint on a step suspends at the top
+  of its step definition, and stepping from there moves through Java. There is no position mapping
+  back the other way, so the feature file is not what the debugger highlights while suspended, and
+  Step Over does not walk from one step to the next. Breakpoints go on steps only — not on
+  `Scenario:`, `Background:` or hook lines.
+- **Which step is running is read out of Cucumber's internals.** The check that stops a breakpoint
+  from firing for every other step sharing the definition reads the `PickleStepDefinitionMatch`
+  frame. Its matching rule is tested; the JDI half of it is not, because that needs a live debug
+  session against a real Cucumber run. A Cucumber that does not present that frame — an old enough
+  4.x, or a wrapper that hides it — falls back to stopping for every step using the definition.
+- **A breakpoint on an ambiguous step takes the first definition.** Cucumber fails such a step at
+  runtime anyway, and the *Ambiguous Cucumber step* inspection already reports it.
 - **Glue paths are not checked.** A step definition outside the glue configured for the run is
   linked here but never found at runtime. Worth doing once run configurations exist.
 - **Localized lambda step definitions.** `io.cucumber.java8.En` lambdas are recognised by their
@@ -315,11 +369,12 @@ doing it.
   *Check for Updates*. Serving `updatePlugins.xml` from a stable path instead of the
   `releases/latest/download` redirect would remove one suspected cause, at the cost of everyone
   re-entering the URL.
-- **Test coverage.** 69 tests: pattern logic, both scanners, snippet generation, a benchmark, and
+- **Test coverage.** 90 tests: pattern logic, both scanners, snippet generation, a benchmark, and
   `BasePlatformTestCase` checks covering resolution, the Ctrl+click path, all three inspections,
   suppression of the superseded one, completion, the generated step definition, custom parameter
-  types, and lambda and localized step definitions. The code vision hint and the parameter
-  annotator are verified only by the lookups underneath them, not by their rendering.
+  types, lambda and localized step definitions, and where a feature-file breakpoint installs itself.
+  The code vision hint and the parameter annotator are verified only by the lookups underneath them,
+  not by their rendering, and the debugger tests stop at the point a live JVM would be needed.
 
 ## License
 

@@ -17,6 +17,14 @@
         step marked.</li>
     </ul>
 
+    <p><b>Debugging</b></p>
+    <ul>
+      <li><b>Breakpoints in feature files</b> — click the gutter beside a step and the debugger
+        stops at the top of its step definition, before the step does anything. It stops only while
+        that step is running, not for every other step sharing the definition, and it needs no
+        particular runner: JUnit, Gradle, Maven and remote attach all work.</li>
+    </ul>
+
     <p><b>Inspections</b></p>
     <ul>
       <li><b>Undefined step</b>, with a quick fix that writes the missing method — deriving
@@ -116,6 +124,12 @@
             enabledByDefault="true"
             level="WARNING"
             implementationClass="dev.kristian.cucumberfast.inspections.UndefinedStepInspection"/>
+        <!-- Breakpoints on steps in feature files, installed on the step definition behind them. -->
+        <xdebugger.breakpointType
+            implementation="dev.kristian.cucumberfast.debugger.GherkinStepBreakpointType"/>
+        <debugger.javaBreakpointHandlerFactory
+            implementation="dev.kristian.cucumberfast.debugger.GherkinStepBreakpointHandlerFactory"/>
+
         <localInspection
             language="Gherkin"
             shortName="CucumberFastAmbiguousStep"
