@@ -1,5 +1,5 @@
-> [!CAUTION]
-> AI-Generated Codebase: This project was built entirely using artificial intelligence. Expect undocumented bugs, unexpected edge-case failures, and architectural quirks. Use at your own risk.
+> [!WARNING]
+> AI-Generated Codebase: This project was built using artificial intelligence. Expect possible undocumented bugs, unexpected edge-case failures, and architectural quirks.
 
 # Cucumber Fast
 
