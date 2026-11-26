@@ -19,6 +19,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.indexing.FileBasedIndex
 import dev.kristian.cucumberfast.index.GherkinStepEntry
 import dev.kristian.cucumberfast.index.GherkinStepIndex
+import dev.kristian.cucumberfast.index.IndexStamps
 import dev.kristian.cucumberfast.index.JavaStepDefinitionScanner
 import org.jetbrains.plugins.cucumber.psi.GherkinStep
 
@@ -112,9 +113,7 @@ object StepUsages {
     }
 
     private fun gherkinIndexTracker(project: Project): ModificationTracker =
-        ModificationTracker {
-            FileBasedIndex.getInstance().getIndexModificationStamp(GherkinStepIndex.NAME, project)
-        }
+        IndexStamps.tracker(project, GherkinStepIndex.NAME)
 
     private val CUCUMBER_STEP_PACKAGES = listOf("io.cucumber.java.", "cucumber.api.java.")
 

@@ -3,16 +3,17 @@
 javaVersion = "21"
 kotlin = "2.4.10"
 
-# Target IDE: matches the locally installed IntelliJ IDEA 2025.1.2 (build 251.26094.121)
-platformType = "IC"
-platformVersion = "2025.1.2"
+# Target IDE: matches the locally installed IntelliJ IDEA 2026.3 (build 263.7307.353).
+# IntelliJ IDEA is a single product from 2025.3 on; there is no separate Community (IC) build.
+platformType = "IU"
+platformVersion = "2026.3"
 
 # Marketplace plugin dependencies
 # gherkin -> https://plugins.jetbrains.com/plugin/9164-gherkin
-gherkin = "251.23774.318"
+gherkin = "263.7307.101"
 
 # Build tooling
-intellijPlatform = "2.18.1"
+intellijPlatform = "2.20.1"
 changelog = "2.5.0"
 
 # Test

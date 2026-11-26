@@ -14,6 +14,7 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.util.indexing.FileBasedIndex
 import dev.kristian.cucumberfast.expression.StandardParameterTypes
 import dev.kristian.cucumberfast.expression.StepPattern
+import dev.kristian.cucumberfast.index.IndexStamps
 import dev.kristian.cucumberfast.index.ParameterTypeIndex
 import org.jetbrains.plugins.cucumber.ParameterTypeManager
 import java.util.concurrent.ConcurrentHashMap
@@ -64,9 +65,7 @@ class CucumberParameterTypes(private val project: Project) : ParameterTypeManage
             CachedValueProvider.Result.create(ConcurrentHashMap<String, StepPattern>(), indexTracker())
         }, false)
 
-    private fun indexTracker(): ModificationTracker = ModificationTracker {
-        FileBasedIndex.getInstance().getIndexModificationStamp(ParameterTypeIndex.NAME, project)
-    }
+    private fun indexTracker(): ModificationTracker = IndexStamps.tracker(project, ParameterTypeIndex.NAME)
 
     companion object {
         private val DECLARATIONS =

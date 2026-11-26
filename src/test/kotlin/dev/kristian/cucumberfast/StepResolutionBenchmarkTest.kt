@@ -35,6 +35,9 @@ class StepResolutionBenchmarkTest : BasePlatformTestCase() {
 
         const val PER_FILE = 500
 
+        /** Runs per measurement; the fastest is kept. */
+        const val MEASUREMENTS = 5
+
         /**
          * Distinct openings, so definitions spread across buckets the way a real suite does. Real
          * suites are less even than this — many steps start "I " — which the shared-prefix test
@@ -132,9 +135,14 @@ class StepResolutionBenchmarkTest : BasePlatformTestCase() {
     private fun linearLookup(definitions: List<IndexedJavaStepDefinition>, stepText: String) =
         definitions.filter { it.matches(stepText) }
 
-    private fun measure(block: () -> Unit): Long {
+    /**
+     * The fastest of [MEASUREMENTS] runs. One pass takes only milliseconds, so a single GC pause or
+     * JIT compilation landing in it can halve the apparent gap; the fastest run is the one least
+     * disturbed by either, and the two paths are compared on equal terms.
+     */
+    private fun measure(block: () -> Unit): Long = (1..MEASUREMENTS).minOf {
         val start = System.nanoTime()
         block()
-        return System.nanoTime() - start
+        System.nanoTime() - start
     }
 }

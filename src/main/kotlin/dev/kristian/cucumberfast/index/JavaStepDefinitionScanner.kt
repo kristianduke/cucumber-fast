@@ -1,6 +1,7 @@
 package dev.kristian.cucumberfast.index
 
-import com.intellij.lang.java.lexer.JavaLexer
+import com.intellij.lang.java.JavaParserDefinition
+import com.intellij.lexer.Lexer
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.pom.java.LanguageLevel
 import com.intellij.psi.JavaTokenType
@@ -49,7 +50,7 @@ object JavaStepDefinitionScanner {
         var lambdaStepsPossible = false
         var localeWildcardImported = false
 
-        val lexer = JavaLexer(LanguageLevel.HIGHEST)
+        val lexer = JavaParserDefinition.createLexer(LanguageLevel.HIGHEST)
         lexer.start(text)
 
         var pendingParameterType: Map<String, String>? = null
@@ -167,7 +168,7 @@ object JavaStepDefinitionScanner {
     private class Annotation(val name: String, val arguments: Map<String, String>)
 
     /** Reads the annotation name and, if present, its argument list. Positioned just after the `@`. */
-    private fun readAnnotation(lexer: JavaLexer, text: CharSequence): Annotation? {
+    private fun readAnnotation(lexer: Lexer, text: CharSequence): Annotation? {
         lexer.advance()
         skipTrivia(lexer)
         val name = StringBuilder()
@@ -190,7 +191,7 @@ object JavaStepDefinitionScanner {
      * name. A bare string is `value`, so `@Given("x")` and `@Given(value = "x", timeout = 1)` and
      * `@ParameterType(name = "colour", value = "red|blue")` all read correctly.
      */
-    private fun readArguments(lexer: JavaLexer, text: CharSequence): Map<String, String> {
+    private fun readArguments(lexer: Lexer, text: CharSequence): Map<String, String> {
         val arguments = HashMap<String, String>(2)
         var depth = 0
         var pendingName: String? = null
@@ -234,7 +235,7 @@ object JavaStepDefinitionScanner {
     }
 
     /** Reads a qualified import name; returns null for anything unexpected. */
-    private fun readImport(lexer: JavaLexer, text: CharSequence): String? {
+    private fun readImport(lexer: Lexer, text: CharSequence): String? {
         lexer.advance()
         skipTrivia(lexer)
         val name = StringBuilder()
@@ -252,7 +253,7 @@ object JavaStepDefinitionScanner {
         return name.toString().takeIf { it.isNotEmpty() }
     }
 
-    private fun skipTrivia(lexer: JavaLexer) {
+    private fun skipTrivia(lexer: Lexer) {
         while (lexer.tokenType == TokenType.WHITE_SPACE ||
             lexer.tokenType == JavaTokenType.C_STYLE_COMMENT ||
             lexer.tokenType == JavaTokenType.END_OF_LINE_COMMENT

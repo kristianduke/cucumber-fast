@@ -1,6 +1,8 @@
 package dev.kristian.cucumberfast.debugger
 
 import com.intellij.debugger.ui.breakpoints.BreakpointManager
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
@@ -9,6 +11,7 @@ import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.XDebuggerUtil
 import com.intellij.xdebugger.breakpoints.XLineBreakpoint
 import org.jetbrains.java.debugger.breakpoints.properties.JavaLineBreakpointProperties
+import java.util.concurrent.TimeUnit
 
 /**
  * Breakpoints placed on steps in a feature file.
@@ -243,9 +246,12 @@ class GherkinStepBreakpointTest : BasePlatformTestCase() {
         }
         try {
             val javaBreakpoint = BreakpointManager.getJavaBreakpoint(xBreakpoint) as? GherkinStepBreakpoint
-            assertNotNull("the type should produce a Java breakpoint", javaBreakpoint)
+                ?: error("the type should produce a Java breakpoint")
 
-            javaBreakpoint!!.reload()
+            // The platform reloads breakpoints off the EDT, and asserts that it does.
+            ApplicationManager.getApplication()
+                .executeOnPooledThread { ReadAction.run<RuntimeException> { javaBreakpoint.reload() } }
+                .get(30, TimeUnit.SECONDS)
 
             val expected = lineOf(definitions, "System.out.println(count);")
             assertEquals("CukeSteps.java", javaBreakpoint.sourcePosition?.file?.name)

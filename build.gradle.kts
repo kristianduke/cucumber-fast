@@ -94,7 +94,7 @@ intellijPlatform {
         changeNotes = changeNotesHtml
 
         ideaVersion {
-            sinceBuild = "251"
+            sinceBuild = "263"
             // Open-ended: the plugin uses no experimental APIs, so don't pin an upper bound.
             untilBuild = provider { null }
         }
@@ -155,7 +155,7 @@ val generateUpdatePlugins by tasks.registering {
               <plugin id="${pluginId.get()}" url="$downloadUrl" version="${pluginVersion.get()}">
                 <name>${pluginName.get()}</name>
                 <vendor>Kristian</vendor>
-                <idea-version since-build="251"/>
+                <idea-version since-build="263"/>
                 <description><![CDATA[Fast navigation between Gherkin feature files and their Java step definitions.]]></description>
                 <change-notes><![CDATA[@CHANGE_NOTES@]]></change-notes>
               </plugin>

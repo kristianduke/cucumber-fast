@@ -64,13 +64,11 @@ class IndexedJavaStepDefinition(
      * it belongs to. Without this the rename would change every feature file and leave the
      * annotation behind, quietly undefining each step it just renamed.
      */
-    override fun setCucumberRegex(newValue: String) {
+    override fun setValue(newValue: String) {
         val literal = patternLiteral() ?: return
-        // Written through verbatim. Renaming a step is a regex-shaped operation in this IDE — the
-        // dialog shows the pattern as a regex and locks its special symbols — so a definition
-        // originally written as a Cucumber expression comes back as the equivalent regex. That is
-        // what Cucumber for Java does too, and rewriting it back into expression form would have to
-        // guess which captures were once `{int}`.
+        // Written through verbatim. The rename dialog edits the pattern in the form it was written
+        // in — a Cucumber expression stays one, with its `{int}`s locked, and a regex stays a regex
+        // — so the new value is already in the right shape for the annotation.
         val factory = JavaPsiFacade.getElementFactory(containingFile.project)
         val replacement = factory.createExpressionFromText(
             "\"" + StringUtil.escapeStringCharacters(newValue) + "\"",

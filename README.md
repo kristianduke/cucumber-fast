@@ -217,16 +217,18 @@ Without this, such a pattern does not merely miss its bucket: IntelliJ leaves th
 ./gradlew buildPlugin  # build/distributions/cucumber-fast-<version>.zip
 ```
 
-Target platform is IntelliJ IDEA Community 2025.1.2, matching the locally installed 2025.1.2
-(build 251.26094.121). Versions live in `gradle/libs.versions.toml`.
+Target platform is IntelliJ IDEA 2026.3, matching the locally installed 2026.3
+(build 263.7307.353); the plugin requires build 263 or later. IntelliJ IDEA has shipped as a single
+product since 2025.3, so the build compiles against `IU` — there is no separate Community build to
+target. Versions live in `gradle/libs.versions.toml`.
 
-The Gherkin plugin declares `until-build="251.*"`, so a newer IDE needs a matching Gherkin build in
+The Gherkin plugin declares `until-build="263.*"`, so a newer IDE needs a matching Gherkin build in
 `libs.versions.toml`; find compatible versions with:
 
 ```
 curl -X POST https://plugins.jetbrains.com/api/search/compatibleUpdates \
   -H 'Content-Type: application/json' \
-  -d '{"build":"IU-251.26094.121","pluginXMLIds":["gherkin"]}'
+  -d '{"build":"IU-263.7307.353","pluginXMLIds":["gherkin"]}'
 ```
 
 Code instrumentation is off in the build (`instrumentCode = false`): there is no Java source and no
@@ -248,6 +250,16 @@ https://github.com/kristianduke/cucumber-fast/releases/latest/download/updatePlu
 "Cucumber Fast" then appears under the Marketplace tab and installs like any other plugin. That URL
 is a permanent redirect to whichever release is newest, so updates arrive as the normal update
 notification — the URL is never touched again.
+
+That URL serves the newest release, which needs IntelliJ IDEA 2026.3 or later. On an older IDE
+(2025.1 to 2026.2), use the last release that supports it instead:
+
+```
+https://github.com/kristianduke/cucumber-fast/releases/download/v0.5.0/updatePlugins.xml
+```
+
+An IDE already pointed at the `latest` URL is safe either way: it does not offer an update its build
+cannot load, so it stays on 0.5.0 until the IDE itself is upgraded.
 
 IDEA fetches this URL anonymously, with no way to supply a token. That is why the repository is
 public; a private one cannot be used as a plugin repository at all.
@@ -350,13 +362,12 @@ doing it.
 - **Unknown parameter types match permissively.** A `{colour}` with no `@ParameterType` anywhere
   becomes `(.*)` so navigation still works. Cucumber would refuse the step outright, so the IDE is
   more forgiving here than the runtime.
-- **Renaming a step rewrites the pattern as a regex.** The rename dialog shows the step definition's
-  pattern as a regular expression and locks its special symbols, so a definition written as a
-  Cucumber expression comes back as the equivalent regex. Cucumber for Java behaves the same way.
-  Rename also does not warn about a collision with another definition; the *Ambiguous Cucumber step*
-  inspection reports it straight afterwards.
+- **Rename does not warn about collisions.** The rename dialog edits the pattern in the form it was
+  written in — a Cucumber expression with its `{int}`s locked, or a regex with its groups locked —
+  and writes it back the same way. It does not warn about a collision with another definition; the
+  *Ambiguous Cucumber step* inspection reports it straight afterwards.
 - **Rename skips Scenario Outline steps.** Values are recovered by matching each usage against the
-  old pattern, and `<count>` never matches `(-?\d+)`, so those steps keep their old wording while the
+  old pattern, and `<count>` never matches `{int}`, so those steps keep their old wording while the
   step definition and every ordinary step are rewritten — leaving the definition matching only some
   of its usages. Ordinary parameters are fine: `{int}` values keep their order and `{string}` keeps
   its quotes. Fixing the outline case means taking over the rename processor and matching against the

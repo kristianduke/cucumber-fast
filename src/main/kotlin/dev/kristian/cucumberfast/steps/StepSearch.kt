@@ -15,7 +15,9 @@ import com.intellij.util.indexing.FileBasedIndex
 import dev.kristian.cucumberfast.expression.StepPattern
 import dev.kristian.cucumberfast.index.GherkinStepEntry
 import dev.kristian.cucumberfast.index.GherkinStepIndex
+import dev.kristian.cucumberfast.index.IndexStamps
 import dev.kristian.cucumberfast.index.JavaStepDefinitionIndex
+import dev.kristian.cucumberfast.index.ParameterTypeIndex
 
 /** Index queries in both directions: step text to definitions, and pattern to feature steps. */
 object StepSearch {
@@ -43,7 +45,7 @@ object StepSearch {
         if (DumbService.isDumb(project)) return emptyList()
         return CachedValuesManager.getManager(project).getCachedValue(module, MODULE_DEFINITIONS, {
             val scope = module.getModuleWithDependenciesAndLibrariesScope(true)
-            CachedValueProvider.Result.create(collectDefinitions(project, scope), indexTracker(project))
+            CachedValueProvider.Result.create(collectDefinitions(project, scope), definitionTracker(project))
         }, false)
     }
 
@@ -80,7 +82,7 @@ object StepSearch {
         if (DumbService.isDumb(project)) return emptyMap()
         return CachedValuesManager.getManager(project).getCachedValue(module, MODULE_BUCKETS, {
             val grouped = allDefinitions(module).groupBy { it.pattern.indexKey }
-            CachedValueProvider.Result.create(grouped, indexTracker(project))
+            CachedValueProvider.Result.create(grouped, definitionTracker(project))
         }, false)
     }
 
@@ -161,11 +163,15 @@ object StepSearch {
         return result
     }
 
-    private fun indexTracker(project: Project): ModificationTracker = ModificationTracker {
-        FileBasedIndex.getInstance().getIndexModificationStamp(JavaStepDefinitionIndex.NAME, project)
-    }
+    /**
+     * What a cached set of [IndexedJavaStepDefinition]s depends on: the step definitions themselves,
+     * and the `@ParameterType` declarations their patterns are compiled against. Each definition
+     * compiles its pattern once, so a type declared or changed in another file only takes effect
+     * when the set is rebuilt — and that file need not hold any step definitions at all.
+     */
+    private fun definitionTracker(project: Project): ModificationTracker =
+        IndexStamps.tracker(project, JavaStepDefinitionIndex.NAME, ParameterTypeIndex.NAME)
 
-    private fun gherkinIndexTracker(project: Project): ModificationTracker = ModificationTracker {
-        FileBasedIndex.getInstance().getIndexModificationStamp(GherkinStepIndex.NAME, project)
-    }
+    private fun gherkinIndexTracker(project: Project): ModificationTracker =
+        IndexStamps.tracker(project, GherkinStepIndex.NAME)
 }

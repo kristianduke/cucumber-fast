@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [0.6.0]
+
+### Changed
+
+- **Requires IntelliJ IDEA 2026.3 (build 263) or later.** Built against IntelliJ IDEA 2026.3 and the
+  matching Gherkin plugin (263.7307.101). The Gherkin plugin's step-definition extension point changed
+  shape in this release, so earlier IDEs are no longer supported.
+- **Renaming a step keeps a Cucumber expression as an expression.** The 2026.3 rename dialog edits
+  `I have {int} cukes` as written, rather than as the equivalent regex, and the step definition is
+  rewritten in the same form. Values typed by a project's own `@ParameterType`s are kept through the
+  rename as well.
+- **Cheaper cache checks on 2026.3.** Checking whether the index has changed now brings the whole
+  project's index up to date first, which on 2026.3 cost more than the step lookup itself. The check
+  now runs only after a code, file, project-root or indexing change, or while an edit is uncommitted.
+
+### Fixed
+
+- **A newly declared or edited `@ParameterType` takes effect straight away.** Step definitions
+  compiled their pattern once and were only rebuilt when a step definition changed, so declaring
+  `{colour}` in a separate file left existing steps matching it as "anything" until some unrelated
+  step definition was edited.
+
 ## [0.5.0]
 
 ### Added
@@ -164,6 +186,7 @@
   file index bucketed by each pattern's literal prefix rather than by scanning every definition.
 
 [Unreleased]: https://github.com/kristianduke/cucumber-fast/compare/v0.5.0...HEAD
+[0.6.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/kristianduke/cucumber-fast/compare/v0.4.1...v0.4.2

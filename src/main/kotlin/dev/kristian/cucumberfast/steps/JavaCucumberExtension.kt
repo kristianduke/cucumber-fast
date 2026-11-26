@@ -7,6 +7,7 @@ import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import org.jetbrains.plugins.cucumber.BDDFrameworkType
+import org.jetbrains.plugins.cucumber.ParameterTypeManager
 import org.jetbrains.plugins.cucumber.StepDefinitionCreator
 import org.jetbrains.plugins.cucumber.psi.GherkinFile
 import org.jetbrains.plugins.cucumber.steps.AbstractCucumberExtension
@@ -28,9 +29,9 @@ import org.jetbrains.plugins.cucumber.steps.AbstractStepDefinition
  */
 class JavaCucumberExtension : AbstractCucumberExtension() {
 
-    override fun isStepLikeFile(child: PsiElement, parent: PsiElement): Boolean = child is PsiClassOwner
+    override fun isStepLikeFile(child: PsiElement): Boolean = child is PsiClassOwner
 
-    override fun isWritableStepLikeFile(child: PsiElement, parent: PsiElement): Boolean =
+    override fun isWritableStepLikeFile(child: PsiElement): Boolean =
         child is PsiClassOwner && child.isWritable
 
     override fun getStepFileType(): BDDFrameworkType = BDDFrameworkType(JavaFileType.INSTANCE)
@@ -48,13 +49,23 @@ class JavaCucumberExtension : AbstractCucumberExtension() {
      * Empty by design: see the class comment. Resolution goes through
      * `dev.kristian.cucumberfast.reference.FastCucumberStepReference`.
      */
-    override fun loadStepsFor(featureFile: PsiFile?, module: Module): List<AbstractStepDefinition> = emptyList()
+    override fun loadStepsFor(module: Module): List<AbstractStepDefinition> = emptyList()
 
     /**
      * Null makes `CucumberStepReference.multiResolveInner` return before it loads anything, which is
      * the cheapest way to keep the Gherkin plugin's own reference from doing the work twice.
      */
     override fun getStepName(step: PsiElement): String? = null
+
+    /**
+     * The project's `@ParameterType` declarations, for the Gherkin plugin's rename: it rebuilds the
+     * old pattern from the expression to recover each step's values, and with only the built-in
+     * types a `{color}` would match nothing and every step using it would be left unrenamed.
+     */
+    override fun getParameterTypeManager(stepDefinition: AbstractStepDefinition): ParameterTypeManager? {
+        if (stepDefinition !is IndexedJavaStepDefinition) return null
+        return CucumberParameterTypes.getInstance(stepDefinition.containingFile.project)
+    }
 
     override fun getStepDefinitionContainers(featureFile: GherkinFile): Collection<PsiFile> {
         val module = ModuleUtilCore.findModuleForPsiElement(featureFile) ?: return emptyList()

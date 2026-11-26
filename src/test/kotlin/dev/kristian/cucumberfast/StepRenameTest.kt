@@ -11,6 +11,10 @@ import org.jetbrains.plugins.cucumber.psi.GherkinStep
  * Renaming a step has to change two things at once: the step text in every feature file that uses
  * it, and the pattern in the step definition that implements it. Changing only one silently breaks
  * the suite.
+ *
+ * The rename dialog edits the pattern in the form it was written in: a Cucumber expression is shown
+ * as one with its `{int}`s locked, a regex is shown without its anchors with its groups locked. So
+ * the new name passed here is the old pattern with only its literal text reworded.
  */
 class StepRenameTest : BasePlatformTestCase() {
 
@@ -42,20 +46,16 @@ class StepRenameTest : BasePlatformTestCase() {
             """.trimIndent(),
         )
 
-        // The rename dialog presents the pattern as a regex and locks its special symbols, so the
-        // new name is the old regex with only its literal text reworded. Anchors are left off: the
-        // processor re-attaches whichever the old pattern had.
-        RenameProcessor(project, stepAtCaret(), """I have (-?\d+) pineapples""", false, false).run()
+        RenameProcessor(project, stepAtCaret(), "I have {int} pineapples", false, false).run()
 
         assertTrue(
             "the feature file should use the new wording, got:\n${myFixture.file.text}",
             myFixture.file.text.contains("Given I have 42 pineapples"),
         )
-        // A definition written as a Cucumber expression comes back as the equivalent regex: the
-        // rename flow is regex-shaped, and turning `(-?\d+)` back into `{int}` would be a guess.
+        // A definition written as a Cucumber expression stays one.
         assertTrue(
             "the step definition should carry the new pattern, got:\n${definitions.text}",
-            definitions.text.contains("""@Given("^I have (-?\\d+) pineapples"""),
+            definitions.text.contains("""@Given("I have {int} pineapples")"""),
         )
         assertFalse(
             "the old wording should be gone, got:\n${definitions.text}",
@@ -85,7 +85,7 @@ class StepRenameTest : BasePlatformTestCase() {
             """.trimIndent(),
         )
 
-        RenameProcessor(project, stepAtCaret(), """I relocate (-?\d+) cukes from crate (-?\d+)""", false, false).run()
+        RenameProcessor(project, stepAtCaret(), "I relocate {int} cukes from crate {int}", false, false).run()
 
         assertTrue(
             "both values should survive the rename, got:\n${myFixture.file.text}",
@@ -93,7 +93,7 @@ class StepRenameTest : BasePlatformTestCase() {
         )
         assertTrue(
             "the definition should carry the new pattern, got:\n${definitions.text}",
-            definitions.text.contains("I relocate"),
+            definitions.text.contains("""@Given("I relocate {int} cukes from crate {int}")"""),
         )
     }
 
@@ -119,15 +119,7 @@ class StepRenameTest : BasePlatformTestCase() {
             """.trimIndent(),
         )
 
-        val definition = org.jetbrains.plugins.cucumber.CucumberUtil
-            .getCucumberStepReference(stepAtCaret())!!
-            .resolveToDefinition()!!
-        // Whatever the rename does, it starts from this regex — so it has to describe the quotes.
-        val regex = definition.cucumberRegex!!
-        assertTrue("expected {string} to become a capturing group, got: $regex", regex.contains("("))
-
-        RenameProcessor(project, stepAtCaret(), regex.removePrefix("^").removeSuffix("$")
-            .replace(" logs in", " signs in"), false, false).run()
+        RenameProcessor(project, stepAtCaret(), "the user {string} signs in", false, false).run()
 
         assertTrue(
             "the quoted value should survive, got:\n${myFixture.file.text}",
@@ -136,12 +128,95 @@ class StepRenameTest : BasePlatformTestCase() {
     }
 
     /**
+     * The rename recovers each step's values by matching it against the old expression, so a
+     * project-defined `{colour}` has to mean what it means for resolution rather than match nothing.
+     */
+    fun testRenameKeepsCustomParameterTypeValues() {
+        myFixture.addFileToProject(
+            "Types.java",
+            """
+            import io.cucumber.java.ParameterType;
+
+            public class Types {
+                @ParameterType("red|blue")
+                public String colour(String name) { return name; }
+            }
+            """.trimIndent(),
+        )
+        val definitions = myFixture.addFileToProject(
+            "CukeSteps.java",
+            """
+            import io.cucumber.java.en.Given;
+
+            public class CukeSteps {
+                @Given("I have a {colour} cuke")
+                public void iHaveAColouredCuke(String colour) {}
+            }
+            """.trimIndent(),
+        )
+        myFixture.configureByText(
+            "test.feature",
+            """
+            Feature: Cukes
+              Scenario: Colours
+                Given I have a red cu<caret>ke
+            """.trimIndent(),
+        )
+
+        RenameProcessor(project, stepAtCaret(), "I have a {colour} pineapple", false, false).run()
+
+        assertTrue(
+            "the custom-typed value should survive, got:\n${myFixture.file.text}",
+            myFixture.file.text.contains("Given I have a red pineapple"),
+        )
+        assertTrue(
+            "the definition should carry the new pattern, got:\n${definitions.text}",
+            definitions.text.contains("""@Given("I have a {colour} pineapple")"""),
+        )
+    }
+
+    /** A definition written as a regex is edited as one, and keeps its anchors. */
+    fun testRegexDefinitionStaysARegex() {
+        val definitions = myFixture.addFileToProject(
+            "CukeSteps.java",
+            """
+            import io.cucumber.java.en.Given;
+
+            public class CukeSteps {
+                @Given("^I have (\\d+) cukes$")
+                public void iHaveCukes(int count) {}
+            }
+            """.trimIndent(),
+        )
+        myFixture.configureByText(
+            "test.feature",
+            """
+            Feature: Cukes
+              Scenario: Eating
+                Given I have 42 cu<caret>kes
+            """.trimIndent(),
+        )
+
+        // The dialog shows a regex without its anchors; the processor puts them back.
+        RenameProcessor(project, stepAtCaret(), """I have (\d+) pineapples""", false, false).run()
+
+        assertTrue(
+            "the feature file should use the new wording, got:\n${myFixture.file.text}",
+            myFixture.file.text.contains("Given I have 42 pineapples"),
+        )
+        assertTrue(
+            "the definition should keep its regex form, got:\n${definitions.text}",
+            definitions.text.contains("""@Given("^I have (\\d+) pineapples$")"""),
+        )
+    }
+
+    /**
      * Known limitation, pinned so it cannot change unnoticed.
      *
      * A Scenario Outline step holds `<count>` where a value would go, and the IDE's rename matches
      * each usage against the *old* pattern to recover its values —
-     * `CucumberStepRenameProcessor.getNewStepName` returns the step unchanged when that match fails.
-     * `<count>` never matches `(-?\d+)`, so outline steps are skipped while ordinary steps and the
+     * `GherkinStepRenameProcessor.getNewStepName` returns the step unchanged when that match fails.
+     * `<count>` never matches `{int}`, so outline steps are skipped while ordinary steps and the
      * step definition are rewritten. A definition used by both ends up matching only some of them.
      *
      * This is the Gherkin plugin's own logic and stock Cucumber for Java behaves the same way.
@@ -174,7 +249,7 @@ class StepRenameTest : BasePlatformTestCase() {
             """.trimIndent(),
         )
 
-        RenameProcessor(project, stepAtCaret(), """I have (-?\d+) pineapples""", false, false).run()
+        RenameProcessor(project, stepAtCaret(), "I have {int} pineapples", false, false).run()
 
         val featureText = myFixture.file.text
         assertTrue(
@@ -208,10 +283,7 @@ class StepRenameTest : BasePlatformTestCase() {
             """.trimIndent(),
         )
 
-        // The rename dialog presents the pattern as a regex and locks its special symbols, so the
-        // new name is the old regex with only its literal text reworded. Anchors are left off: the
-        // processor re-attaches whichever the old pattern had.
-        RenameProcessor(project, stepAtCaret(), """I have (-?\d+) pineapples""", false, false).run()
+        RenameProcessor(project, stepAtCaret(), "I have {int} pineapples", false, false).run()
 
         val reference = org.jetbrains.plugins.cucumber.CucumberUtil.getCucumberStepReference(stepAtCaret())
         assertNotNull("the renamed step should still have a reference", reference)
